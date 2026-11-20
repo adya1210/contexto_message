@@ -12,11 +12,10 @@ def download_model():
     if not model_path.exists():
         log.info(f"{model_name} not found. Downloading...")
         model = api.load(model_name)
-        print(f"{model_name} downloaded successfully.")
         model.save(str(model_path))
         log.info(f"{model_name} saved to {model_path}.")
     else:
-        print("Model already exists. Skipping download.")
+        log.info("%s already exists. Skipping download.", model_name)
 
 
 
@@ -24,7 +23,7 @@ class SimilarityScorer:
     def __init__(self):
         log.info('Load word2vec model')
         download_model()
-        self.model = KeyedVectors.load(str(model_path))
+        self.model = KeyedVectors.load(str(model_path), mmap="r")
     
     def embed(self, tokens):
         if isinstance(tokens, str):

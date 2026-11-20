@@ -3,7 +3,7 @@ services:
     name: message-contexto-api
     runtime: python
     plan: free
-    buildCommand: pip install -r requirements.txt
+    buildCommand: pip install -r requirements.txt && python -c "from backend.similarity_scorer import download_model; download_model()"
     startCommand: gunicorn backend.main:app --workers 1 --threads 4 --timeout 120
     healthCheckPath: /api/health
     envVars:
