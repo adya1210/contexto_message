@@ -189,6 +189,9 @@ FILLER_WORDS = {
     "sometimes", "sort", "still", "stuff", "sure", "take", "tell", "thing", "think", "though",
     "time", "today", "together", "tomorrow", "tonight", "totally", "very", "way", "well",
     "whatever", "yeah", "yes", "yesterday", "yet",
+    # quantifiers the dictionary also lists as nouns
+    "all", "another", "any", "both", "each", "few", "more", "most", "none", "other", "own",
+    "same", "some", "such",
     # interjections
     "aww", "haha", "hello", "hey", "lol", "miss", "nah", "omg", "please", "sorry", "thank",
     "thanks", "wow", "yay",
@@ -210,8 +213,11 @@ def choose_word(message):
             continue
 
         tags = parts_of_speech(lowered) | parts_of_speech(word)
-        # No dictionary entry means it's almost always a name (e.g. "riya", "singh").
-        score = max((POS_SCORES.get(tag, 0) for tag in tags), default=-0.6)
+        # Only real nouns make good answers. Names (e.g. "riya", "singh") have no
+        # dictionary entry, so they're skipped here too.
+        if "NOUN" not in tags or lowered in FILLER_WORDS or word in FILLER_WORDS:
+            continue
+        score = max(POS_SCORES.get(tag, 0) for tag in tags)
         # Capitalized in the middle of a sentence is probably a name too.
         start = match.start()
         sentence_start = not message[:start].strip() or message[:start].rstrip()[-1] in ".!?"
@@ -221,8 +227,6 @@ def choose_word(message):
         frequency = scorer.frequency_rank(word)
         score += 0.6 * min(1.0, math.log(frequency + 2) / math.log(3000))
         score += 0.1 * (position + 1) / len(tokens)
-        if lowered in FILLER_WORDS or word in FILLER_WORDS:
-            score -= 1.5
         scored.append((score, word))
 
     if not scored:
@@ -268,7 +272,10 @@ def set_message():
 
     word = choose_word(message)
     if word is None:
-        return jsonify({"error": "The message needs at least one usable word."}), 400
+        return jsonify({"error": (
+            "Hmm, there's no good word to guess in that message. "
+            "Try adding a noun, like a place, food, or thing!"
+        )}), 400
 
     try:
         save_word(word, message, sender or None)
