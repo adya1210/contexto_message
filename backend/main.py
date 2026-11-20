@@ -95,11 +95,21 @@ def github_contents_request(method, payload=None):
         raise GitHubStateError("Could not read or write game state on GitHub.") from error
 
 
-def load_word():
+def decrypt_state_field(data, encrypted_name, legacy_name):
+    encrypted_value = data.get(encrypted_name)
+    if encrypted_value is None:
+        return data.get(legacy_name)
+    try:
+        return state_cipher().decrypt(encrypted_value.encode("ascii")).decode("utf-8")
+    except (InvalidToken, UnicodeEncodeError, UnicodeDecodeError) as error:
+        raise GitHubStateError("Could not decrypt the shared game state.") from error
+
+
+def load_state():
     if os.environ.get("GITHUB_TOKEN"):
         file_data = github_contents_request("GET")
         if file_data is None:
-            return None
+            return None, None
         try:
             contents = base64.b64decode(file_data["content"]).decode("utf-8")
             data = json.loads(contents)
@@ -107,31 +117,37 @@ def load_word():
             raise GitHubStateError("The game-state file on GitHub is invalid.") from error
         if not isinstance(data, dict):
             raise GitHubStateError("The game-state file on GitHub is invalid.")
-        encrypted_word = data.get("encrypted_user_picked_word")
-        if encrypted_word is not None:
-            try:
-                word = state_cipher().decrypt(encrypted_word.encode("ascii")).decode("utf-8")
-            except (InvalidToken, UnicodeEncodeError, UnicodeDecodeError) as error:
-                raise GitHubStateError("Could not decrypt the shared game state.") from error
-        else:
-            word = data.get("user_picked_word")
-        return word.strip().lower() if isinstance(word, str) and word.strip() else None
+        word = decrypt_state_field(data, "encrypted_user_picked_word", "user_picked_word")
+        message = decrypt_state_field(data, "encrypted_message", "message")
+        clean_word = word.strip().lower() if isinstance(word, str) and word.strip() else None
+        clean_message = message.strip() if isinstance(message, str) and message.strip() else None
+        return clean_word, clean_message
 
     try:
         with open(GAME_STATE_FILE, "r") as file:
             data = json.load(file)
+            if not isinstance(data, dict):
+                raise GitHubStateError("The local game-state file is invalid.")
             word = data.get("user_picked_word")
-            return word.strip().lower() if isinstance(word, str) and word.strip() else None
+            message = data.get("message")
+            clean_word = word.strip().lower() if isinstance(word, str) and word.strip() else None
+            clean_message = message.strip() if isinstance(message, str) and message.strip() else None
+            return clean_word, clean_message
     except (FileNotFoundError, json.JSONDecodeError):
-        return None
+        return None, None
 
 
-def save_word(word):
+def load_word():
+    return load_state()[0]
+
+
+def save_word(word, message):
     if os.environ.get("GITHUB_TOKEN"):
         existing_file = github_contents_request("GET")
-        encrypted_word = state_cipher().encrypt(word.encode("utf-8")).decode("ascii")
+        cipher = state_cipher()
         content = base64.b64encode(json.dumps({
-            "encrypted_user_picked_word": encrypted_word
+            "encrypted_user_picked_word": cipher.encrypt(word.encode("utf-8")).decode("ascii"),
+            "encrypted_message": cipher.encrypt(message.encode("utf-8")).decode("ascii"),
         }).encode("utf-8")).decode("ascii")
         payload = {
             "message": "Update shared Message Contexto word",
@@ -144,7 +160,7 @@ def save_word(word):
         return
 
     with open(GAME_STATE_FILE, "w") as file:
-        json.dump({"user_picked_word": word}, file)
+        json.dump({"user_picked_word": word, "message": message}, file)
 
 
 def choose_word(message):
@@ -212,7 +228,7 @@ def set_message():
         return jsonify({"error": "The message needs at least one usable word."}), 400
 
     try:
-        save_word(word)
+        save_word(word, message)
     except GitHubStateError as error:
         app.logger.error("%s", error)
         return jsonify({"error": "Could not save the shared word to GitHub."}), 503
@@ -227,7 +243,7 @@ def guess():
         return jsonify({"error": "Guesses must be 40 characters or fewer."}), 400
 
     try:
-        secret = load_word()
+        secret, message = load_state()
     except GitHubStateError as error:
         app.logger.error("%s", error)
         return jsonify({"error": "Could not read the shared game state."}), 503
@@ -239,10 +255,15 @@ def guess():
     if guess_word == secret:
         score = 1.0
     else:
-        score = (scorer.similarity(secret, guess_word) + 1) / 2
-        score = max(0.0, min(1.0, score))
+        cosine = scorer.similarity(secret, guess_word)
+        normalized = max(0.0, min(1.0, (cosine - 0.20) / 0.65))
+        score = normalized ** 1.7
 
-    return jsonify({"score": round(score, 4), "correct": guess_word == secret})
+    is_correct = guess_word == secret
+    response = {"score": round(score, 4), "correct": is_correct}
+    if is_correct and message:
+        response["message"] = message
+    return jsonify(response)
 
 
 if __name__ == "__main__":

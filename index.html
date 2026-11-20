@@ -81,9 +81,103 @@
       transition: width .45s ease;
     }
     .score { text-align: right; font-size: 13px; font-variant-numeric: tabular-numbers; }
+    .reveal {
+      position: fixed;
+      inset: 0;
+      z-index: 5;
+      display: grid;
+      place-items: center;
+      padding: 20px;
+      overflow: hidden;
+      background: rgba(68, 37, 51, .38);
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity .25s ease, visibility .25s;
+    }
+    .reveal.show { opacity: 1; visibility: visible; }
+    .confetti { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+    .letter-card {
+      position: relative;
+      z-index: 1;
+      width: min(92vw, 430px);
+      padding: 24px;
+      border: 1px solid rgba(126, 80, 98, .2);
+      border-radius: 22px;
+      background: #fffafc;
+      box-shadow: 0 24px 80px rgba(67, 34, 49, .28);
+      text-align: center;
+      transform: translateY(36px) scale(.8) rotate(-2deg);
+      opacity: 0;
+    }
+    .reveal.show .letter-card { animation: letter-pop .65s cubic-bezier(.2, .9, .25, 1.2) forwards; }
+    .envelope { position: relative; height: 150px; margin: 10px auto 28px; display: grid; place-items: center; perspective: 700px; }
+    .envelope-back {
+      position: absolute;
+      inset: 18px 30px 0;
+      border-radius: 12px;
+      background: #edbdcf;
+      box-shadow: 0 10px 24px rgba(126, 80, 98, .16);
+    }
+    .letter-paper {
+      position: absolute;
+      z-index: 1;
+      inset: 0 39px 8px;
+      display: grid;
+      place-items: center;
+      border: 1px solid #eadde2;
+      border-radius: 8px;
+      background: #fff;
+      color: #a74b71;
+      font-size: 32px;
+      transform: translateY(22px);
+    }
+    .reveal.show .letter-paper { animation: letter-rise .8s .35s ease-out forwards; }
+    .envelope-front {
+      position: absolute;
+      z-index: 2;
+      inset: 57px 30px 0;
+      border-radius: 0 0 12px 12px;
+      background: linear-gradient(145deg, #f3cada, #eab2c7);
+      clip-path: polygon(0 0, 50% 54%, 100% 0, 100% 100%, 0 100%);
+    }
+    .envelope-flap {
+      position: absolute;
+      z-index: 3;
+      top: 18px;
+      left: 30px;
+      right: 30px;
+      height: 76px;
+      border-radius: 12px 12px 0 0;
+      background: #e8adc2;
+      clip-path: polygon(0 0, 100% 0, 50% 100%);
+      transform-origin: top center;
+    }
+    .reveal.show .envelope-flap { animation: flap-open .65s .25s ease-in forwards; }
+    .letter-card h2 { margin: 0; color: #7b3b57; font-size: 25px; }
+    .revealed-message {
+      margin: 12px 0 18px;
+      padding: 14px;
+      border-radius: 12px;
+      background: #fff0f5;
+      color: var(--ink);
+      font-size: 18px;
+      line-height: 1.55;
+      overflow-wrap: anywhere;
+      white-space: pre-wrap;
+    }
+    .close-reveal { background: #ba718e; color: white; }
+    @keyframes letter-pop {
+      60% { transform: translateY(-8px) scale(1.03) rotate(1deg); }
+      100% { transform: translateY(0) scale(1) rotate(0); opacity: 1; }
+    }
+    @keyframes letter-rise { to { transform: translateY(-20px); } }
+    @keyframes flap-open { to { transform: rotateX(180deg); opacity: .35; } }
     @media (max-width: 480px) {
       main { padding: 20px; }
       .guess { grid-template-columns: 76px 1fr 42px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
     }
   </style>
 </head>
@@ -113,6 +207,20 @@
       <div id="guesses" class="guesses"></div>
     </section>
   </main>
+  <div id="reveal" class="reveal" aria-hidden="true">
+    <canvas id="confetti" class="confetti" aria-hidden="true"></canvas>
+    <section class="letter-card" role="dialog" aria-modal="true" aria-labelledby="reveal-title">
+      <div class="envelope" aria-hidden="true">
+        <div class="envelope-back"></div>
+        <div class="letter-paper">✉</div>
+        <div class="envelope-front"></div>
+        <div class="envelope-flap"></div>
+      </div>
+      <h2 id="reveal-title">You found the word!</h2>
+      <p id="revealed-message" class="revealed-message"></p>
+      <button id="close-reveal" class="close-reveal">Lovely!</button>
+    </section>
+  </div>
   <script>
     const API_URL = document.querySelector('meta[name="api-url"]')?.content || "";
 
@@ -125,6 +233,67 @@
       if (!response.ok) throw new Error(data.error || "Something went wrong.");
       return data;
     }
+
+    function showLetter(message) {
+      const reveal = document.querySelector("#reveal");
+      document.querySelector("#revealed-message").textContent = message;
+      reveal.classList.remove("show");
+      reveal.setAttribute("aria-hidden", "false");
+      requestAnimationFrame(() => reveal.classList.add("show"));
+      launchConfetti();
+      document.querySelector("#close-reveal").focus();
+    }
+
+    function launchConfetti() {
+      const canvas = document.querySelector("#confetti");
+      const context = canvas.getContext("2d");
+      const ratio = window.devicePixelRatio || 1;
+      canvas.width = window.innerWidth * ratio;
+      canvas.height = window.innerHeight * ratio;
+      context.scale(ratio, ratio);
+      const colors = ["#ba718e", "#f2c14e", "#85c7a5", "#9aa9ed", "#f08cae"];
+      const pieces = Array.from({ length: 130 }, () => ({
+        x: Math.random() * window.innerWidth,
+        y: -Math.random() * window.innerHeight,
+        size: 5 + Math.random() * 7,
+        speed: 2 + Math.random() * 4,
+        drift: (Math.random() - .5) * 2.5,
+        spin: Math.random() * Math.PI,
+        color: colors[Math.floor(Math.random() * colors.length)]
+      }));
+      const started = performance.now();
+
+      function frame(now) {
+        context.clearRect(0, 0, window.innerWidth, window.innerHeight);
+        for (const piece of pieces) {
+          piece.y += piece.speed;
+          piece.x += piece.drift;
+          piece.spin += .08;
+          context.save();
+          context.translate(piece.x, piece.y);
+          context.rotate(piece.spin);
+          context.fillStyle = piece.color;
+          context.fillRect(-piece.size / 2, -piece.size / 2, piece.size, piece.size * .65);
+          context.restore();
+        }
+        if (now - started < 2600) requestAnimationFrame(frame);
+        else context.clearRect(0, 0, window.innerWidth, window.innerHeight);
+      }
+
+      requestAnimationFrame(frame);
+    }
+
+    function hideLetter() {
+      const reveal = document.querySelector("#reveal");
+      reveal.classList.remove("show");
+      reveal.setAttribute("aria-hidden", "true");
+      document.querySelector("#guess-input").focus();
+    }
+
+    document.querySelector("#close-reveal").addEventListener("click", hideLetter);
+    document.querySelector("#reveal").addEventListener("click", event => {
+      if (event.target.id === "reveal") hideLetter();
+    });
 
     document.querySelectorAll(".tab").forEach(tab => {
       tab.addEventListener("click", () => {
@@ -193,6 +362,9 @@
         document.querySelector("#guess-status").textContent =
           data.correct ? "Correct! You found the word." : "Keep guessing.";
         input.value = "";
+        if (data.correct) {
+          showLetter(data.message || "The answer was set before message reveals were added. Ask the owner to set a new message.");
+        }
         input.focus();
       } catch (error) {
         document.querySelector("#guess-status").textContent = error.message;

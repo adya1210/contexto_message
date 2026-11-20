@@ -35,4 +35,4 @@ class SimilarityScorer:
     def similarity(self, word, guess):
         v_word, v_guess = self.embed(word), self.embed(guess)
         denom = np.linalg.norm(v_word) * np.linalg.norm(v_guess)
-        return round(float(v_word @ v_guess / denom), 2) if denom else 0.0
+        return float(v_word @ v_guess / denom) if denom else 0.0
