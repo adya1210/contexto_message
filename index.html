@@ -81,6 +81,17 @@
       transition: width .45s ease;
     }
     .score { text-align: right; font-size: 13px; font-variant-numeric: tabular-numbers; }
+    .hint-button { margin-top: 12px; background: #f0c4d3; color: #633b4b; }
+    .hint-message { min-height: 24px; margin: 10px 0 0; }
+    .hint-word {
+      margin: 8px 0;
+      color: #7b3b57;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 24px;
+      font-weight: 800;
+      letter-spacing: .18em;
+      overflow-wrap: anywhere;
+    }
     .reveal {
       position: fixed;
       inset: 0;
@@ -204,6 +215,9 @@
         <button id="guess-button" class="primary">Check</button>
       </div>
       <p id="guess-status" class="status"></p>
+      <button id="hint-button" class="hint-button">Get a hint</button>
+      <p id="hint-status" class="hint-message" aria-live="polite"></p>
+      <p id="hint-word" class="hint-word" aria-live="polite"></p>
       <div id="guesses" class="guesses"></div>
     </section>
   </main>
@@ -218,7 +232,7 @@
       </div>
       <h2 id="reveal-title">You found the word!</h2>
       <p id="revealed-message" class="revealed-message"></p>
-      <button id="close-reveal" class="close-reveal">Lovely!</button>
+      <button id="close-reveal" class="close-reveal">Exit</button>
     </section>
   </div>
   <script>
@@ -321,6 +335,10 @@
         });
         status.textContent = `The word has been set and is available to every player: ${data.word}`;
         document.querySelector("#guesses").replaceChildren();
+        document.querySelector("#hint-status").textContent = "";
+        document.querySelector("#hint-word").textContent = "";
+        document.querySelector("#hint-button").disabled = false;
+        localStorage.removeItem("message-contexto-hint-token");
       } catch (error) {
         status.textContent = error.message;
       } finally {
@@ -363,6 +381,7 @@
           data.correct ? "Correct! You found the word." : "Keep guessing.";
         input.value = "";
         if (data.correct) {
+          document.querySelector("#hint-button").disabled = true;
           showLetter(data.message || "The answer was set before message reveals were added. Ask the owner to set a new message.");
         }
         input.focus();
@@ -376,6 +395,38 @@
     document.querySelector("#guess-button").addEventListener("click", makeGuess);
     document.querySelector("#guess-input").addEventListener("keydown", event => {
       if (event.key === "Enter") makeGuess();
+    });
+
+    document.querySelector("#hint-button").addEventListener("click", async () => {
+      const button = document.querySelector("#hint-button");
+      const status = document.querySelector("#hint-status");
+      button.disabled = true;
+      status.textContent = "Getting a hint...";
+      try {
+        const data = await api("/api/hint", {
+          method: "POST",
+          body: JSON.stringify({
+            token: localStorage.getItem("message-contexto-hint-token")
+          })
+        });
+        localStorage.setItem("message-contexto-hint-token", data.token);
+        document.querySelector("#hint-word").textContent = data.pattern;
+        if (data.revealed_count === 0) {
+          status.textContent = `The word has ${data.letter_count} letters. Press again to reveal a random letter.`;
+        } else {
+          status.textContent = `Revealed ${data.revealed_count} of ${data.letter_count} letters.`;
+        }
+        if (data.complete) {
+          button.disabled = true;
+          status.textContent = "Every letter is revealed!";
+          showLetter(data.message || "You revealed every letter!");
+        } else {
+          button.disabled = false;
+        }
+      } catch (error) {
+        status.textContent = error.message;
+        button.disabled = false;
+      }
     });
   </script>
 </body>

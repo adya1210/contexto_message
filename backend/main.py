@@ -1,7 +1,9 @@
 import base64
+import hashlib
 import hmac
 import json
 import os
+import random
 import re
 from pathlib import Path
 from urllib.error import HTTPError, URLError
@@ -23,6 +25,8 @@ GAME_STATE_FILE = BASE_DIR / "game_state.json"
 GITHUB_API = "https://api.github.com"
 MAX_MESSAGE_LENGTH = 500
 MAX_GUESS_LENGTH = 40
+MAX_HINT_TOKEN_LENGTH = 2048
+LOCAL_HINT_SIGNING_KEY = os.urandom(32)
 
 STOP_WORDS = {
     "a", "about", "all", "and", "are", "as", "at", "be", "because", "been",
@@ -52,6 +56,61 @@ scorer = SimilarityScorer()
 
 class GitHubStateError(Exception):
     pass
+
+
+def hint_signing_key():
+    key = os.environ.get("STATE_ENCRYPTION_KEY")
+    if key:
+        try:
+            encryption_key = base64.urlsafe_b64decode(key.encode("ascii"))
+        except (ValueError, UnicodeEncodeError) as error:
+            raise GitHubStateError("STATE_ENCRYPTION_KEY is invalid.") from error
+        return hmac.new(encryption_key, b"message-contexto-hints", hashlib.sha256).digest()
+    return LOCAL_HINT_SIGNING_KEY
+
+
+def create_hint_token(game_id, revealed_indices, started=True):
+    payload = json.dumps(
+        {"game_id": game_id, "revealed_indices": revealed_indices, "started": started},
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+    signature = hmac.new(hint_signing_key(), payload, hashlib.sha256).digest()
+    encoded_payload = base64.urlsafe_b64encode(payload).decode("ascii").rstrip("=")
+    encoded_signature = base64.urlsafe_b64encode(signature).decode("ascii").rstrip("=")
+    return f"{encoded_payload}.{encoded_signature}"
+
+
+def read_hint_token(token, game_id, word):
+    if not isinstance(token, str) or not token or len(token) > MAX_HINT_TOKEN_LENGTH:
+        raise ValueError("Invalid hint token.")
+    try:
+        encoded_payload, encoded_signature = token.split(".", 1)
+        payload = base64.urlsafe_b64decode(encoded_payload + "=" * (-len(encoded_payload) % 4))
+        signature = base64.urlsafe_b64decode(encoded_signature + "=" * (-len(encoded_signature) % 4))
+        expected_signature = hmac.new(hint_signing_key(), payload, hashlib.sha256).digest()
+        token_data = json.loads(payload)
+    except (ValueError, UnicodeEncodeError, UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise ValueError("Invalid hint token.") from error
+
+    if not hmac.compare_digest(signature, expected_signature):
+        raise ValueError("Invalid hint token.")
+    if not isinstance(token_data, dict) or token_data.get("game_id") != game_id:
+        return False, []
+
+    revealed = token_data.get("revealed_indices")
+    started = token_data.get("started")
+    if not isinstance(started, bool):
+        raise ValueError("Invalid hint token.")
+    if not isinstance(revealed, list) or any(
+        isinstance(index, bool) or not isinstance(index, int)
+        or index < 0 or index >= len(word) or not word[index].isalpha()
+        for index in revealed
+    ):
+        raise ValueError("Invalid hint token.")
+    if len(revealed) != len(set(revealed)):
+        raise ValueError("Invalid hint token.")
+    return started, revealed
 
 
 def state_cipher():
@@ -119,9 +178,10 @@ def load_state():
             raise GitHubStateError("The game-state file on GitHub is invalid.")
         word = decrypt_state_field(data, "encrypted_user_picked_word", "user_picked_word")
         message = decrypt_state_field(data, "encrypted_message", "message")
+        game_id = data.get("game_id")
         clean_word = word.strip().lower() if isinstance(word, str) and word.strip() else None
         clean_message = message.strip() if isinstance(message, str) and message.strip() else None
-        return clean_word, clean_message
+        return clean_word, clean_message, game_id
 
     try:
         with open(GAME_STATE_FILE, "r") as file:
@@ -130,11 +190,12 @@ def load_state():
                 raise GitHubStateError("The local game-state file is invalid.")
             word = data.get("user_picked_word")
             message = data.get("message")
+            game_id = data.get("game_id")
             clean_word = word.strip().lower() if isinstance(word, str) and word.strip() else None
             clean_message = message.strip() if isinstance(message, str) and message.strip() else None
-            return clean_word, clean_message
+            return clean_word, clean_message, game_id
     except (FileNotFoundError, json.JSONDecodeError):
-        return None, None
+        return None, None, None
 
 
 def load_word():
@@ -142,12 +203,14 @@ def load_word():
 
 
 def save_word(word, message):
+    game_id = os.urandom(16).hex()
     if os.environ.get("GITHUB_TOKEN"):
         existing_file = github_contents_request("GET")
         cipher = state_cipher()
         content = base64.b64encode(json.dumps({
             "encrypted_user_picked_word": cipher.encrypt(word.encode("utf-8")).decode("ascii"),
             "encrypted_message": cipher.encrypt(message.encode("utf-8")).decode("ascii"),
+            "game_id": game_id,
         }).encode("utf-8")).decode("ascii")
         payload = {
             "message": "Update shared Message Contexto word",
@@ -160,7 +223,7 @@ def save_word(word, message):
         return
 
     with open(GAME_STATE_FILE, "w") as file:
-        json.dump({"user_picked_word": word, "message": message}, file)
+        json.dump({"user_picked_word": word, "message": message, "game_id": game_id}, file)
 
 
 def choose_word(message):
@@ -243,7 +306,7 @@ def guess():
         return jsonify({"error": "Guesses must be 40 characters or fewer."}), 400
 
     try:
-        secret, message = load_state()
+        secret, message, _ = load_state()
     except GitHubStateError as error:
         app.logger.error("%s", error)
         return jsonify({"error": "Could not read the shared game state."}), 503
@@ -262,6 +325,64 @@ def guess():
     is_correct = guess_word == secret
     response = {"score": round(score, 4), "correct": is_correct}
     if is_correct and message:
+        response["message"] = message
+    return jsonify(response)
+
+
+@app.post("/api/hint")
+def hint():
+    data = request.get_json(silent=True)
+    token = data.get("token") if isinstance(data, dict) else None
+
+    try:
+        secret, message, game_id = load_state()
+    except GitHubStateError as error:
+        app.logger.error("%s", error)
+        return jsonify({"error": "Could not read the shared game state."}), 503
+    if secret is None:
+        return jsonify({"error": "No word has been set."}), 400
+
+    if not isinstance(game_id, str) or not game_id:
+        game_id = "legacy-game"
+
+    try:
+        started, revealed = read_hint_token(token, game_id, secret) if token else (False, [])
+    except (GitHubStateError, ValueError):
+        return jsonify({"error": "Your hint state is invalid. Refresh and try again."}), 400
+
+    letter_indices = [index for index, character in enumerate(secret) if character.isalpha()]
+    if not letter_indices:
+        return jsonify({"error": "The answer has no letters to reveal."}), 400
+
+    if not started:
+        return jsonify({
+            "letter_count": len(letter_indices),
+            "revealed_count": 0,
+            "pattern": "".join(
+                character if not character.isalpha() else "_"
+                for character in secret
+            ),
+            "token": create_hint_token(game_id, [], started=True),
+            "complete": False,
+        })
+
+    remaining = [index for index in letter_indices if index not in revealed]
+    if remaining:
+        revealed.append(random.choice(remaining))
+
+    pattern = "".join(
+        character if not character.isalpha() or index in revealed else "_"
+        for index, character in enumerate(secret)
+    )
+    complete = len(revealed) == len(letter_indices)
+    response = {
+        "letter_count": len(letter_indices),
+        "revealed_count": len(revealed),
+        "pattern": pattern,
+        "token": create_hint_token(game_id, revealed),
+        "complete": complete,
+    }
+    if complete and message:
         response["message"] = message
     return jsonify(response)
 
