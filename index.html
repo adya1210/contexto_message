@@ -5,15 +5,27 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="api-url" content="https://message-contexto-api.onrender.com">
   <title>Message Contexto</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=VT323&display=swap" rel="stylesheet">
   <style>
     :root {
       color-scheme: light;
-      --pink: #f8dfe8;
-      --pink-deep: #e5a7bd;
-      --ink: #34242b;
-      --muted: #7d6870;
-      --card: rgba(255, 250, 252, 0.82);
-      --line: rgba(126, 80, 98, 0.18);
+      --px: 4px;
+      --bg: #fbd9e5;
+      --bg-dot: #f6c6d7;
+      --ink: #6b1e36;          /* deep raspberry outline */
+      --ink-dark: #3a0d1c;     /* empty bar / shadow */
+      --pink: #f48fb1;
+      --pink-mid: #f7a8c4;
+      --pink-light: #fde4ee;
+      --pink-pale: #fff3f8;
+      --pink-shade: #d9638f;
+      --lilac: #b388ff;
+      --cream: #fff8f1;
+      --tan: #f0c48a;
+      --tan-dark: #d49a5c;
+      --red: #c7425f;
     }
     * { box-sizing: border-box; }
     body {
@@ -21,222 +33,494 @@
       min-height: 100vh;
       display: grid;
       place-items: center;
-      background: radial-gradient(circle at top, #fff7fa 0, var(--pink) 55%, #efcbd9 100%);
+      padding: 24px 16px;
+      background-color: var(--bg);
+      background-image:
+        linear-gradient(45deg, var(--bg-dot) 25%, transparent 25%, transparent 75%, var(--bg-dot) 75%),
+        linear-gradient(45deg, var(--bg-dot) 25%, transparent 25%, transparent 75%, var(--bg-dot) 75%);
+      background-size: 32px 32px;
+      background-position: 0 0, 16px 16px;
       color: var(--ink);
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-family: "VT323", ui-monospace, monospace;
+      font-size: 22px;
+      image-rendering: pixelated;
     }
-    main {
-      width: min(92vw, 620px);
-      padding: 28px;
-      background: var(--card);
-      border: 1px solid var(--line);
-      border-radius: 24px;
-      box-shadow: 0 20px 60px rgba(112, 65, 83, 0.16);
-      backdrop-filter: blur(12px);
+
+    /* ---------- pixel border helper (notched corners) ---------- */
+    .px-border {
+      box-shadow:
+        calc(var(--px) * -1) 0 0 0 var(--ink),
+        var(--px) 0 0 0 var(--ink),
+        0 calc(var(--px) * -1) 0 0 var(--ink),
+        0 var(--px) 0 0 var(--ink);
     }
-    h1 { margin: 0; font-size: clamp(30px, 8vw, 46px); letter-spacing: -0.05em; }
-    h2 { margin: 0 0 12px; font-size: 20px; }
-    p { color: var(--muted); line-height: 1.5; }
-    .tabs { display: flex; gap: 8px; margin: 22px 0 18px; }
-    button { border: 0; border-radius: 12px; padding: 13px 16px; font-weight: 800; cursor: pointer; }
-    .tab { flex: 1; background: rgba(255,255,255,.62); color: var(--ink); }
-    .tab.active { background: var(--pink-deep); }
-    .primary { background: #ba718e; color: white; }
-    .primary:disabled { opacity: .55; cursor: wait; }
-    label { display: block; margin-top: 12px; color: var(--muted); font-size: 14px; }
-    textarea, input {
-      width: 100%;
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      background: rgba(255,255,255,.78);
+
+    /* ---------- the window ---------- */
+    .window {
+      width: min(calc(100% - var(--px) * 2), 600px);
+      min-width: 0;
+      background: var(--pink-light);
+      margin: var(--px);
+      box-shadow:
+        calc(var(--px) * -1) 0 0 0 var(--ink),
+        var(--px) 0 0 0 var(--ink),
+        0 calc(var(--px) * -1) 0 0 var(--ink),
+        0 var(--px) 0 0 var(--ink),
+        12px 16px 0 0 rgba(107, 30, 54, .22);
+    }
+    .titlebar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      background: var(--pink-mid);
+      border-bottom: var(--px) solid var(--ink);
+    }
+    .titlebar .hearts { display: flex; gap: 6px; }
+    .titlebar .title {
+      flex: 1;
+      min-width: 0;
+      text-align: center;
+      font-family: "Silkscreen", monospace;
+      font-size: 14px;
       color: var(--ink);
-      font: inherit;
+      letter-spacing: .04em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .sprite { display: block; image-rendering: pixelated; shape-rendering: crispEdges; }
+    .window-body { padding: 24px 24px 28px; }
+
+    h1 {
+      margin: 0;
+      font-family: "Silkscreen", monospace;
+      font-weight: 700;
+      font-size: clamp(26px, 7vw, 40px);
+      line-height: 1.05;
+      color: var(--pink-shade);
+      text-shadow: 3px 3px 0 var(--ink);
+      letter-spacing: .02em;
+    }
+    h2 {
+      margin: 0 0 12px;
+      font-family: "Silkscreen", monospace;
       font-size: 16px;
+      color: var(--ink);
     }
-    textarea { min-height: 120px; resize: vertical; padding: 14px; }
-    input { padding: 14px; }
-    .row { display: flex; gap: 8px; margin-top: 10px; }
-    .row input { flex: 1; min-width: 0; }
+    h2::before { content: "♥ "; color: var(--pink-shade); }
+    p { line-height: 1.15; margin: 10px 0; }
+    .tagline { color: #9a4766; }
+
+    /* ---------- buttons ---------- */
+    button {
+      position: relative;
+      margin: var(--px);
+      border: 0;
+      padding: 10px 18px 12px;
+      font-family: "Silkscreen", monospace;
+      font-size: 15px;
+      letter-spacing: .03em;
+      cursor: pointer;
+      color: white;
+      background: var(--pink);
+      text-shadow: 2px 2px 0 var(--pink-shade);
+      box-shadow:
+        calc(var(--px) * -1) 0 0 0 var(--ink),
+        var(--px) 0 0 0 var(--ink),
+        0 calc(var(--px) * -1) 0 0 var(--ink),
+        0 var(--px) 0 0 var(--ink),
+        inset 0 calc(var(--px) * -1) 0 0 var(--pink-shade),
+        inset var(--px) var(--px) 0 0 rgba(255, 255, 255, .45);
+      transition: transform .05s steps(1);
+    }
+    button:hover:not(:disabled) { background: #f6a0bf; }
+    button:active:not(:disabled) {
+      transform: translateY(var(--px));
+      box-shadow:
+        calc(var(--px) * -1) 0 0 0 var(--ink),
+        var(--px) 0 0 0 var(--ink),
+        0 calc(var(--px) * -1) 0 0 var(--ink),
+        0 var(--px) 0 0 var(--ink),
+        inset 0 var(--px) 0 0 var(--pink-shade);
+    }
+    button:disabled { opacity: .55; cursor: wait; }
+    button:focus-visible { outline: var(--px) dashed var(--lilac); outline-offset: 6px; }
+
+    /* ---------- tabs ---------- */
+    .tabs { display: flex; gap: 12px; margin: 22px 0 22px; }
+    .tab {
+      flex: 1;
+      background: var(--pink-pale);
+      color: var(--ink);
+      text-shadow: none;
+      box-shadow:
+        calc(var(--px) * -1) 0 0 0 var(--ink),
+        var(--px) 0 0 0 var(--ink),
+        0 calc(var(--px) * -1) 0 0 var(--ink),
+        0 var(--px) 0 0 var(--ink),
+        inset 0 calc(var(--px) * -1) 0 0 var(--pink-mid);
+    }
+    .tab:hover:not(:disabled) { background: white; }
+    .tab.active {
+      background: var(--pink);
+      color: white;
+      text-shadow: 2px 2px 0 var(--pink-shade);
+      transform: translateY(var(--px));
+      box-shadow:
+        calc(var(--px) * -1) 0 0 0 var(--ink),
+        var(--px) 0 0 0 var(--ink),
+        0 calc(var(--px) * -1) 0 0 var(--ink),
+        0 var(--px) 0 0 var(--ink),
+        inset 0 var(--px) 0 0 var(--pink-shade);
+    }
+    .tab.active::before { content: "» "; }
+    .tab.active::after { content: " «"; }
+
+    /* ---------- inputs ---------- */
+    label { display: block; margin-top: 16px; font-size: 20px; color: #9a4766; }
+    textarea, input {
+      display: block;
+      width: calc(100% - var(--px) * 2);
+      margin: var(--px);
+      border: 0;
+      background: var(--cream);
+      color: var(--ink);
+      font-family: "VT323", monospace;
+      font-size: 24px;
+      box-shadow:
+        calc(var(--px) * -1) 0 0 0 var(--ink),
+        var(--px) 0 0 0 var(--ink),
+        0 calc(var(--px) * -1) 0 0 var(--ink),
+        0 var(--px) 0 0 var(--ink),
+        inset var(--px) var(--px) 0 0 rgba(107, 30, 54, .12);
+    }
+    textarea::placeholder, input::placeholder { color: #c58aa0; }
+    textarea:focus, input:focus { outline: none; background: white; }
+    textarea:focus, input:focus { box-shadow:
+        calc(var(--px) * -1) 0 0 0 var(--pink-shade),
+        var(--px) 0 0 0 var(--pink-shade),
+        0 calc(var(--px) * -1) 0 0 var(--pink-shade),
+        0 var(--px) 0 0 var(--pink-shade),
+        inset var(--px) var(--px) 0 0 rgba(107, 30, 54, .12); }
+    textarea { min-height: 120px; resize: vertical; padding: 10px 14px; }
+    input { padding: 8px 14px; }
+    .row { display: flex; gap: 12px; margin-top: 14px; align-items: stretch; }
+    .row input { flex: 1; min-width: 0; width: auto; }
+    .row button { white-space: nowrap; }
+
     .panel { display: none; }
     .panel.active { display: block; }
-    .status { min-height: 24px; margin: 12px 0 0; }
-    .guesses { display: grid; gap: 9px; margin-top: 16px; }
+    .status { min-height: 26px; margin: 14px 0 0; }
+    .status:not(:empty)::before { content: "> "; color: var(--pink-shade); }
+
+    /* ---------- hint ---------- */
+    .hint-button {
+      margin-top: 16px;
+      background: var(--lilac);
+      text-shadow: 2px 2px 0 #7c5bd1;
+      box-shadow:
+        calc(var(--px) * -1) 0 0 0 var(--ink),
+        var(--px) 0 0 0 var(--ink),
+        0 calc(var(--px) * -1) 0 0 var(--ink),
+        0 var(--px) 0 0 var(--ink),
+        inset 0 calc(var(--px) * -1) 0 0 #7c5bd1,
+        inset var(--px) var(--px) 0 0 rgba(255, 255, 255, .45);
+    }
+    .hint-button:hover:not(:disabled) { background: #c3a0ff; }
+    .hint-button::before { content: "? "; }
+    .hint-message { min-height: 24px; margin: 10px 0 0; color: #9a4766; }
+    .hint-word {
+      margin: 8px 0;
+      color: var(--ink);
+      font-family: "Silkscreen", monospace;
+      font-size: 26px;
+      letter-spacing: .3em;
+      overflow-wrap: anywhere;
+    }
+
+    /* ---------- guess list (health-bar style) ---------- */
+    .guesses { display: grid; gap: 14px; margin-top: 18px; }
     .guess {
       display: grid;
-      grid-template-columns: 90px 1fr 48px;
+      grid-template-columns: 110px 1fr 54px;
       align-items: center;
-      gap: 10px;
-      padding: 8px;
-      border-radius: 12px;
-      background: rgba(255,255,255,.62);
-      border: 1px solid var(--line);
+      gap: 12px;
+      animation: guess-in .3s steps(3) both;
     }
-    .guess-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 800; }
-    .track { height: 18px; overflow: hidden; border-radius: 999px; background: #eadce2; }
+    .guess-name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 24px;
+    }
+    .track {
+      position: relative;
+      height: 20px;
+      margin: var(--px);
+      background: var(--ink-dark);
+      box-shadow:
+        calc(var(--px) * -1) 0 0 0 var(--ink),
+        var(--px) 0 0 0 var(--ink),
+        0 calc(var(--px) * -1) 0 0 var(--ink),
+        0 var(--px) 0 0 var(--ink);
+    }
     .fill {
       height: 100%;
       width: 0;
-      border-radius: 999px;
-      background: linear-gradient(90deg, #cfa2b3, #b84e7b);
-      transition: width .45s ease;
+      background: var(--pink);
+      box-shadow: inset 0 var(--px) 0 0 rgba(255, 255, 255, .5), inset 0 calc(var(--px) * -1) 0 0 var(--pink-shade);
+      transition: width .6s steps(10);
     }
-    .score { text-align: right; font-size: 13px; font-variant-numeric: tabular-numbers; }
-    .hint-button { margin-top: 12px; background: #f0c4d3; color: #633b4b; }
-    .hint-message { min-height: 24px; margin: 10px 0 0; }
-    .hint-word {
-      margin: 8px 0;
-      color: #7b3b57;
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-      font-size: 24px;
-      font-weight: 800;
-      letter-spacing: .18em;
-      overflow-wrap: anywhere;
+    .guess.warm .fill { background: #ff7aa8; }
+    .guess.hot .fill {
+      background: #ff4f8b;
+      box-shadow: inset 0 var(--px) 0 0 rgba(255, 255, 255, .55), inset 0 calc(var(--px) * -1) 0 0 #c22a62;
     }
+    .score {
+      text-align: right;
+      font-family: "Silkscreen", monospace;
+      font-size: 14px;
+      font-variant-numeric: tabular-nums;
+    }
+    @keyframes guess-in { from { opacity: 0; transform: translateX(-12px); } }
+
+    /* ---------- reveal ---------- */
     .reveal {
       position: fixed;
       inset: 0;
       z-index: 5;
       display: grid;
       place-items: center;
-      padding: 20px;
+      padding: 20px 16px;
       overflow: hidden;
-      background: rgba(68, 37, 51, .38);
+      background: rgba(107, 30, 54, .45);
       opacity: 0;
       visibility: hidden;
-      transition: opacity .25s ease, visibility .25s;
+      transition: opacity .25s steps(4), visibility .25s;
     }
     .reveal.show { opacity: 1; visibility: visible; }
-    .confetti { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+    .confetti { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; image-rendering: pixelated; }
     .letter-card {
       position: relative;
       z-index: 1;
-      width: min(92vw, 430px);
-      padding: 24px;
-      border: 1px solid rgba(126, 80, 98, .2);
-      border-radius: 22px;
-      background: #fffafc;
-      box-shadow: 0 24px 80px rgba(67, 34, 49, .28);
+      width: min(100%, 440px);
       text-align: center;
-      transform: translateY(36px) scale(.8) rotate(-2deg);
+      transform: translateY(40px);
       opacity: 0;
     }
-    .reveal.show .letter-card { animation: letter-pop .65s cubic-bezier(.2, .9, .25, 1.2) forwards; }
-    .envelope { position: relative; height: 150px; margin: 10px auto 28px; display: grid; place-items: center; perspective: 700px; }
-    .envelope-back {
-      position: absolute;
-      inset: 18px 30px 0;
-      border-radius: 12px;
-      background: #edbdcf;
-      box-shadow: 0 10px 24px rgba(126, 80, 98, .16);
+    .reveal.show .letter-card { animation: letter-pop .5s steps(5) forwards; }
+    .letter-card .window-body { padding: 18px 22px 24px; }
+    .envelope { position: relative; height: 150px; margin: 4px auto 14px; display: grid; place-items: center; }
+    .envelope > span { position: absolute; inset: 0; display: grid; place-items: center; }
+    .env-closed { opacity: 1; }
+    .env-open { opacity: 0; }
+    .reveal.show .env-closed { animation: env-wiggle .7s steps(1) forwards; }
+    .reveal.show .env-open { animation: env-open .5s .7s steps(4) forwards; }
+    .letter-card h2 {
+      margin: 0;
+      font-size: 20px;
+      color: var(--pink-shade);
+      text-shadow: 2px 2px 0 var(--ink);
     }
-    .letter-paper {
-      position: absolute;
-      z-index: 1;
-      inset: 0 39px 8px;
-      display: grid;
-      place-items: center;
-      border: 1px solid #eadde2;
-      border-radius: 8px;
-      background: #fff;
-      color: #a74b71;
-      font-size: 32px;
-      transform: translateY(22px);
-    }
-    .reveal.show .letter-paper { animation: letter-rise .8s .35s ease-out forwards; }
-    .envelope-front {
-      position: absolute;
-      z-index: 2;
-      inset: 57px 30px 0;
-      border-radius: 0 0 12px 12px;
-      background: linear-gradient(145deg, #f3cada, #eab2c7);
-      clip-path: polygon(0 0, 50% 54%, 100% 0, 100% 100%, 0 100%);
-    }
-    .envelope-flap {
-      position: absolute;
-      z-index: 3;
-      top: 18px;
-      left: 30px;
-      right: 30px;
-      height: 76px;
-      border-radius: 12px 12px 0 0;
-      background: #e8adc2;
-      clip-path: polygon(0 0, 100% 0, 50% 100%);
-      transform-origin: top center;
-    }
-    .reveal.show .envelope-flap { animation: flap-open .65s .25s ease-in forwards; }
-    .letter-card h2 { margin: 0; color: #7b3b57; font-size: 25px; }
+    .letter-card h2::before { content: ""; }
     .revealed-message {
-      margin: 12px 0 18px;
+      margin: 14px var(--px) 20px;
       padding: 14px;
-      border-radius: 12px;
-      background: #fff0f5;
+      background: var(--cream);
       color: var(--ink);
-      font-size: 18px;
-      line-height: 1.55;
+      font-size: 24px;
+      line-height: 1.15;
       overflow-wrap: anywhere;
       white-space: pre-wrap;
+      text-align: left;
+      box-shadow:
+        calc(var(--px) * -1) 0 0 0 var(--ink),
+        var(--px) 0 0 0 var(--ink),
+        0 calc(var(--px) * -1) 0 0 var(--ink),
+        0 var(--px) 0 0 var(--ink);
     }
-    .close-reveal { background: #ba718e; color: white; }
+    .close-reveal::before { content: "« "; }
+    .close-reveal::after { content: " »"; }
+
     @keyframes letter-pop {
-      60% { transform: translateY(-8px) scale(1.03) rotate(1deg); }
-      100% { transform: translateY(0) scale(1) rotate(0); opacity: 1; }
+      60% { transform: translateY(-8px); opacity: 1; }
+      100% { transform: translateY(0); opacity: 1; }
     }
-    @keyframes letter-rise { to { transform: translateY(-20px); } }
-    @keyframes flap-open { to { transform: rotateX(180deg); opacity: .35; } }
+    @keyframes env-wiggle {
+      0%   { transform: translateX(0); }
+      15%  { transform: translateX(-6px) rotate(-4deg); }
+      30%  { transform: translateX(6px) rotate(4deg); }
+      45%  { transform: translateX(-6px) rotate(-4deg); }
+      60%  { transform: translateX(6px) rotate(4deg); }
+      75%  { transform: translateX(0); }
+      100% { transform: translateX(0); opacity: 0; }
+    }
+    @keyframes env-open {
+      from { opacity: 0; transform: translateY(12px) scale(.9); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
     @media (max-width: 480px) {
-      main { padding: 20px; }
-      .guess { grid-template-columns: 76px 1fr 42px; }
+      body { font-size: 20px; }
+      .window-body { padding: 18px 16px 22px; }
+      .titlebar .title { font-size: 11px; }
+      .tabs { gap: 8px; }
+      .tab { padding: 10px 8px 12px; font-size: 13px; }
+      .guess { grid-template-columns: 84px 1fr 46px; gap: 8px; }
+      .guess-name { font-size: 21px; }
     }
     @media (prefers-reduced-motion: reduce) {
-      *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+      *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; animation-delay: 0s !important; }
     }
   </style>
 </head>
 <body>
-  <main>
-    <h1>Message Contexto</h1>
-    <p>Write a message and the game chooses the word it considers most guessable.</p>
-    <div class="tabs">
-      <button class="tab active" data-tab="set">Set message</button>
-      <button class="tab" data-tab="guess">Guess</button>
-    </div>
-    <section id="set" class="panel active">
-      <h2>Write a message</h2>
-      <textarea id="message" maxlength="500" placeholder="For example: Wow! What an amazing game!"></textarea>
-      <label for="admin-key">Game owner key (only needed to set a message)</label>
-      <input id="admin-key" type="password" maxlength="200" placeholder="Only needed when setting a message" autocomplete="off">
-      <div class="row"><button id="save" class="primary">Set the word</button></div>
-      <p id="set-status" class="status"></p>
-    </section>
-    <section id="guess" class="panel">
-      <h2>Make a guess</h2>
-      <div class="row">
-        <input id="guess-input" type="text" maxlength="40" placeholder="Type a word" autocomplete="off">
-        <button id="guess-button" class="primary">Check</button>
+  <main class="window">
+    <div class="titlebar" aria-hidden="true">
+      <div class="hearts">
+        <span data-sprite="heart" data-colors="lilac" data-scale="3"></span>
+        <span data-sprite="heart" data-colors="pink" data-scale="3"></span>
+        <span data-sprite="heart" data-colors="white" data-scale="3"></span>
       </div>
-      <p id="guess-status" class="status"></p>
-      <button id="hint-button" class="hint-button">Get a hint</button>
-      <p id="hint-status" class="hint-message" aria-live="polite"></p>
-      <p id="hint-word" class="hint-word" aria-live="polite"></p>
-      <div id="guesses" class="guesses"></div>
-    </section>
+      <span class="title">message_contexto.exe</span>
+      <span data-sprite="close" data-scale="3"></span>
+    </div>
+    <div class="window-body">
+      <h1>Message Contexto</h1>
+      <p class="tagline">Write a message and the game chooses the word it considers most guessable.</p>
+      <div class="tabs">
+        <button class="tab active" data-tab="set">Set message</button>
+        <button class="tab" data-tab="guess">Guess</button>
+      </div>
+      <section id="set" class="panel active">
+        <h2>Write a message</h2>
+        <textarea id="message" maxlength="500" placeholder="For example: Wow! What an amazing game!"></textarea>
+        <label for="admin-key">Game owner key (only needed to set a message)</label>
+        <input id="admin-key" type="password" maxlength="200" placeholder="Only needed when setting a message" autocomplete="off">
+        <div class="row"><button id="save" class="primary">Set the word</button></div>
+        <p id="set-status" class="status"></p>
+      </section>
+      <section id="guess" class="panel">
+        <h2>Make a guess</h2>
+        <div class="row">
+          <input id="guess-input" type="text" maxlength="40" placeholder="Type a word" autocomplete="off">
+          <button id="guess-button" class="primary">Check</button>
+        </div>
+        <p id="guess-status" class="status"></p>
+        <button id="hint-button" class="hint-button">Get a hint</button>
+        <p id="hint-status" class="hint-message" aria-live="polite"></p>
+        <p id="hint-word" class="hint-word" aria-live="polite"></p>
+        <div id="guesses" class="guesses"></div>
+      </section>
+    </div>
   </main>
   <div id="reveal" class="reveal" aria-hidden="true">
     <canvas id="confetti" class="confetti" aria-hidden="true"></canvas>
-    <section class="letter-card" role="dialog" aria-modal="true" aria-labelledby="reveal-title">
-      <div class="envelope" aria-hidden="true">
-        <div class="envelope-back"></div>
-        <div class="letter-paper">✉</div>
-        <div class="envelope-front"></div>
-        <div class="envelope-flap"></div>
+    <section class="letter-card window" role="dialog" aria-modal="true" aria-labelledby="reveal-title">
+      <div class="titlebar" aria-hidden="true">
+        <div class="hearts">
+          <span data-sprite="heart" data-colors="lilac" data-scale="3"></span>
+          <span data-sprite="heart" data-colors="pink" data-scale="3"></span>
+          <span data-sprite="heart" data-colors="white" data-scale="3"></span>
+        </div>
+        <span class="title">new_message.txt</span>
+        <span data-sprite="close" data-scale="3"></span>
       </div>
-      <h2 id="reveal-title">You found the word!</h2>
-      <p id="revealed-message" class="revealed-message"></p>
-      <button id="close-reveal" class="close-reveal">Exit</button>
+      <div class="window-body">
+        <div class="envelope" aria-hidden="true">
+          <span class="env-closed" data-sprite="envelope" data-scale="8"></span>
+          <span class="env-open" data-sprite="envelopeOpen" data-scale="8"></span>
+        </div>
+        <h2 id="reveal-title">You found the word!</h2>
+        <p id="revealed-message" class="revealed-message"></p>
+        <button id="close-reveal" class="close-reveal">Exit</button>
+      </div>
     </section>
   </div>
   <script>
     const API_URL = document.querySelector('meta[name="api-url"]')?.content || "";
+
+    /* ---------- pixel sprites ---------- */
+    const PALETTES = {
+      lilac: { k: "#6b1e36", p: "#b388ff", w: "#e6d8ff", s: "#7c5bd1" },
+      pink:  { k: "#6b1e36", p: "#f48fb1", w: "#ffe1ec", s: "#d9638f" },
+      white: { k: "#6b1e36", p: "#fff3f8", w: "#ffffff", s: "#f7c4d6" },
+      env:   { k: "#3a1a10", t: "#f0c48a", d: "#d49a5c", w: "#fff8f1", r: "#c7425f", l: "#3a1a10" },
+      close: { k: "#d9638f" }
+    };
+    const SPRITES = {
+      heart: [
+        ".kkk.kkk.",
+        "kpwpkpppk",
+        "kwpppppsk",
+        "kppppppsk",
+        ".kppppsk.",
+        "..kppsk..",
+        "...kpk...",
+        "....k...."
+      ],
+      close: [
+        "kk...kk",
+        "kkk.kkk",
+        ".kkkkk.",
+        "..kkk..",
+        ".kkkkk.",
+        "kkk.kkk",
+        "kk...kk"
+      ],
+      envelope: [
+        "kkkkkkkkkkkkkkkk",
+        "kdkttttttttttkdk",
+        "kddkttttttttkddk",
+        "kdddkttttttkdddk",
+        "kddddkttttkddddk",
+        "kdddddkrrkdddddk",
+        "kddddkkrrkkddddk",
+        "kdddkttttttkdddk",
+        "kddkttttttttkddk",
+        "kdkttttttttttkdk",
+        "kkttttttttttttkk",
+        "kkkkkkkkkkkkkkkk"
+      ],
+      envelopeOpen: [
+        "..kkkkkkkkkkkk..",
+        "..kwwwwwwwwwwk..",
+        "..kwrwrwwllwwk..",
+        "..kwrrrwwwwwwk..",
+        "..kwwrwwllllwk..",
+        "kkkwwwwwwwwwwkkk",
+        "kdkwllwllllwwkdk",
+        "kddkwwwwwwwwkddk",
+        "kdddkwwwwwwkdddk",
+        "kddddkwwwwkddddk",
+        "kdddddkrrkdddddk",
+        "kddddkkrrkkddddk",
+        "kdddkttttttkdddk",
+        "kddkttttttttkddk",
+        "kdkttttttttttkdk",
+        "kkttttttttttttkk",
+        "kkkkkkkkkkkkkkkk"
+      ]
+    };
+
+    function pixelSVG(rows, palette, scale) {
+      const width = rows[0].length;
+      const height = rows.length;
+      let rects = "";
+      rows.forEach((row, y) => {
+        [...row].forEach((cell, x) => {
+          if (palette[cell]) rects += `<rect x="${x}" y="${y}" width="1" height="1" fill="${palette[cell]}"/>`;
+        });
+      });
+      return `<svg class="sprite" width="${width * scale}" height="${height * scale}" viewBox="0 0 ${width} ${height}" shape-rendering="crispEdges" aria-hidden="true">${rects}</svg>`;
+    }
+
+    document.querySelectorAll("[data-sprite]").forEach(element => {
+      const name = element.dataset.sprite;
+      const paletteName = element.dataset.colors || (name.startsWith("envelope") ? "env" : name === "close" ? "close" : "pink");
+      element.innerHTML = pixelSVG(SPRITES[name], PALETTES[paletteName], Number(element.dataset.scale || 3));
+    });
 
     async function api(path, options = {}) {
       const response = await fetch(API_URL + path, {
@@ -253,7 +537,7 @@
       document.querySelector("#revealed-message").textContent = message;
       reveal.classList.remove("show");
       reveal.setAttribute("aria-hidden", "false");
-      requestAnimationFrame(() => reveal.classList.add("show"));
+      requestAnimationFrame(() => requestAnimationFrame(() => reveal.classList.add("show")));
       launchConfetti();
       document.querySelector("#close-reveal").focus();
     }
@@ -264,15 +548,17 @@
       const ratio = window.devicePixelRatio || 1;
       canvas.width = window.innerWidth * ratio;
       canvas.height = window.innerHeight * ratio;
-      context.scale(ratio, ratio);
-      const colors = ["#ba718e", "#f2c14e", "#85c7a5", "#9aa9ed", "#f08cae"];
-      const pieces = Array.from({ length: 130 }, () => ({
+      context.setTransform(ratio, 0, 0, ratio, 0, 0);
+      context.imageSmoothingEnabled = false;
+      const colors = ["#f48fb1", "#ff4f8b", "#b388ff", "#fff3f8", "#f0c48a", "#d9638f"];
+      const heart = [".x.x.", "xxxxx", "xxxxx", ".xxx.", "..x.."];
+      const pieces = Array.from({ length: 110 }, () => ({
         x: Math.random() * window.innerWidth,
         y: -Math.random() * window.innerHeight,
-        size: 5 + Math.random() * 7,
-        speed: 2 + Math.random() * 4,
-        drift: (Math.random() - .5) * 2.5,
-        spin: Math.random() * Math.PI,
+        cell: Math.random() < .5 ? 3 : 4,
+        speed: 1.5 + Math.random() * 3,
+        sway: Math.random() * Math.PI * 2,
+        isHeart: Math.random() < .55,
         color: colors[Math.floor(Math.random() * colors.length)]
       }));
       const started = performance.now();
@@ -281,16 +567,21 @@
         context.clearRect(0, 0, window.innerWidth, window.innerHeight);
         for (const piece of pieces) {
           piece.y += piece.speed;
-          piece.x += piece.drift;
-          piece.spin += .08;
-          context.save();
-          context.translate(piece.x, piece.y);
-          context.rotate(piece.spin);
+          piece.sway += .05;
+          const cell = piece.cell;
+          // snap to a pixel grid so it stays chunky
+          const x = Math.round((piece.x + Math.sin(piece.sway) * 14) / cell) * cell;
+          const y = Math.round(piece.y / cell) * cell;
           context.fillStyle = piece.color;
-          context.fillRect(-piece.size / 2, -piece.size / 2, piece.size, piece.size * .65);
-          context.restore();
+          if (piece.isHeart) {
+            heart.forEach((row, ry) => [...row].forEach((c, rx) => {
+              if (c === "x") context.fillRect(x + rx * cell, y + ry * cell, cell, cell);
+            }));
+          } else {
+            context.fillRect(x, y, cell * 2, cell * 2);
+          }
         }
-        if (now - started < 2600) requestAnimationFrame(frame);
+        if (now - started < 3000) requestAnimationFrame(frame);
         else context.clearRect(0, 0, window.innerWidth, window.innerHeight);
       }
 
@@ -363,6 +654,8 @@
         const percentage = Math.round(data.score * 100);
         const row = document.createElement("div");
         row.className = "guess";
+        if (percentage >= 75) row.classList.add("hot");
+        else if (percentage >= 45) row.classList.add("warm");
         const name = document.createElement("span");
         name.className = "guess-name";
         name.textContent = guess;
@@ -376,7 +669,7 @@
         score.textContent = percentage + "%";
         row.append(name, track, score);
         document.querySelector("#guesses").prepend(row);
-        requestAnimationFrame(() => { fill.style.width = percentage + "%"; });
+        requestAnimationFrame(() => requestAnimationFrame(() => { fill.style.width = percentage + "%"; }));
         document.querySelector("#guess-status").textContent =
           data.correct ? "Correct! You found the word." : "Keep guessing.";
         input.value = "";
