@@ -4,4 +4,5 @@ __pycache__/
 backend/game_state.json
 backend/glove-twitter-25
 backend/glove-twitter-25.vectors.npy
+backend/glove-wiki-*
 .env

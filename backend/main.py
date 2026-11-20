@@ -231,16 +231,17 @@ def choose_word(message):
     scored = []
     for index, raw_word in enumerate(candidates):
         word = raw_word.strip("'-").lower()
-        if len(word) < 3 or word in STOP_WORDS:
+        if len(word) < 3 or word in STOP_WORDS or scorer.is_too_common(word):
             continue
 
-        in_vocabulary = word in scorer.model
+        in_vocabulary = scorer.knows(word)
         length_score = min(len(word), 12) / 12
         position_score = (index + 1) / max(len(candidates), 1)
         capitalized = raw_word[:1].isupper()
 
         score = length_score * 0.35 + position_score * 0.25
-        score += 0.30 if in_vocabulary else 0.05
+        # Strongly prefer words the model knows, otherwise guesses can't be ranked.
+        score += 1.0 if in_vocabulary else 0.0
         score += 0.10 if capitalized else 0
         scored.append((score, word))
 
@@ -315,15 +316,22 @@ def guess():
     if not guess_word:
         return jsonify({"error": "Enter a guess."}), 400
 
-    if guess_word == secret:
-        score = 1.0
-    else:
-        cosine = scorer.similarity(secret, guess_word)
-        normalized = max(0.0, min(1.0, (cosine - 0.20) / 0.65))
-        score = normalized ** 1.7
-
     is_correct = guess_word == secret
-    response = {"score": round(score, 4), "correct": is_correct}
+    if is_correct:
+        rank = 1
+    else:
+        if scorer.is_too_common(guess_word):
+            return jsonify({"error": "That word is too common, try something more specific."}), 400
+        if not scorer.knows(guess_word):
+            return jsonify({"error": "I don't know that word, try another one."}), 400
+        rank = scorer.rank(secret, guess_word)
+
+    response = {
+        "score": round(1.0 if is_correct else scorer.score_from_rank(rank), 4),
+        "rank": rank,
+        "total": scorer.total,
+        "correct": is_correct,
+    }
     if is_correct and message:
         response["message"] = message
     return jsonify(response)
