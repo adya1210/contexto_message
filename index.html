@@ -827,7 +827,7 @@
 
     function win(data) {
       document.querySelector("#hint-button").disabled = true;
-      showLetter(data.message || "The answer was set before message reveals were added. Ask the owner to set a new message.", data.from);
+      showLetter(data.message || "This word was set before messages were saved. Write a new message in the Set message tab!", data.from);
     }
 
     document.querySelector("#guess-button").addEventListener("click", makeGuess);
