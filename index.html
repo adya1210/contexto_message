@@ -12,20 +12,59 @@
     :root {
       color-scheme: light;
       --px: 4px;
-      --bg: #fbd9e5;
-      --bg-dot: #f6c6d7;
-      --ink: #6b1e36;          /* deep raspberry outline */
-      --ink-dark: #3a0d1c;     /* empty bar / shadow */
-      --pink: #f48fb1;
-      --pink-mid: #f7a8c4;
-      --pink-light: #fde4ee;
-      --pink-pale: #fff3f8;
-      --pink-shade: #d9638f;
-      --lilac: #b388ff;
-      --cream: #fff8f1;
-      --tan: #f0c48a;
-      --tan-dark: #d49a5c;
-      --red: #c7425f;
+      --bg: #eef3f6;
+      --bg-dot: #dde6ec;
+      --surface: #ffffff;
+      --surface-2: #f7f9f9;
+      --field: #ffffff;
+      --ink: #0f1419;
+      --muted: #536471;
+      --outline: #0f1419;
+      --line: #cfd9de;
+      --track: #eff3f4;
+      --shadow: rgba(15, 20, 25, .14);
+      --accent: #1d9bf0;
+      --accent-hover: #4cb0f3;
+      --accent-shade: #0f6fb0;
+      --green: #00ba7c;
+      --green-shade: #00875a;
+      --yellow: #ef7d31;
+      --yellow-shade: #b85715;
+      --red: #f91880;
+      --red-shade: #b80e5c;
+      --on-bar: #0f1419;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        color-scheme: dark;
+        --bg: #15202b;
+        --bg-dot: #1b2834;
+        --surface: #1e2732;
+        --surface-2: #273340;
+        --field: #15202b;
+        --ink: #f7f9f9;
+        --muted: #8b98a5;
+        --outline: #070b0f;
+        --line: #38444d;
+        --track: #15202b;
+        --shadow: rgba(0, 0, 0, .35);
+        --on-bar: #0f1419;
+      }
+    }
+    :root[data-theme="dark"] {
+      color-scheme: dark;
+      --bg: #15202b;
+      --bg-dot: #1b2834;
+      --surface: #1e2732;
+      --surface-2: #273340;
+      --field: #15202b;
+      --ink: #f7f9f9;
+      --muted: #8b98a5;
+      --outline: #070b0f;
+      --line: #38444d;
+      --track: #15202b;
+      --shadow: rgba(0, 0, 0, .35);
+      --on-bar: #0f1419;
     }
     * { box-sizing: border-box; }
     body {
@@ -34,51 +73,45 @@
       display: grid;
       place-items: center;
       padding: 24px 16px;
-      background: var(--bg);
+      background-color: var(--bg);
+      background-image: radial-gradient(var(--bg-dot) 2px, transparent 2px);
+      background-size: 16px 16px;
       color: var(--ink);
       font-family: "VT323", ui-monospace, monospace;
       font-size: 22px;
       image-rendering: pixelated;
     }
 
-    /* ---------- pixel border helper (notched corners) ---------- */
-    .px-border {
-      box-shadow:
-        calc(var(--px) * -1) 0 0 0 var(--ink),
-        var(--px) 0 0 0 var(--ink),
-        0 calc(var(--px) * -1) 0 0 var(--ink),
-        0 var(--px) 0 0 var(--ink);
-    }
-
     /* ---------- the window ---------- */
     .window {
       width: min(calc(100% - var(--px) * 2), 600px);
       min-width: 0;
-      background: var(--pink-light);
+      background: var(--surface);
       margin: var(--px);
       box-shadow:
-        calc(var(--px) * -1) 0 0 0 var(--ink),
-        var(--px) 0 0 0 var(--ink),
-        0 calc(var(--px) * -1) 0 0 var(--ink),
-        0 var(--px) 0 0 var(--ink),
-        12px 16px 0 0 rgba(107, 30, 54, .22);
+        calc(var(--px) * -1) 0 0 0 var(--outline),
+        var(--px) 0 0 0 var(--outline),
+        0 calc(var(--px) * -1) 0 0 var(--outline),
+        0 var(--px) 0 0 var(--outline),
+        12px 16px 0 0 var(--shadow);
     }
     .titlebar {
       display: flex;
       align-items: center;
       gap: 8px;
       padding: 10px 12px;
-      background: var(--pink-mid);
-      border-bottom: var(--px) solid var(--ink);
+      background: var(--accent);
+      border-bottom: var(--px) solid var(--outline);
     }
-    .titlebar .hearts { display: flex; gap: 6px; }
+    .titlebar .dots { display: flex; gap: 6px; }
     .titlebar .title {
       flex: 1;
       min-width: 0;
       text-align: center;
       font-family: "Silkscreen", monospace;
       font-size: 14px;
-      color: var(--ink);
+      color: #fff;
+      text-shadow: 2px 2px 0 var(--accent-shade);
       letter-spacing: .04em;
       white-space: nowrap;
       overflow: hidden;
@@ -93,19 +126,19 @@
       font-weight: 700;
       font-size: clamp(26px, 7vw, 40px);
       line-height: 1.05;
-      color: var(--pink-shade);
-      text-shadow: 3px 3px 0 var(--ink);
+      color: var(--ink);
       letter-spacing: .02em;
     }
+    h1 .accent { color: var(--accent); text-shadow: 3px 3px 0 var(--accent-shade); }
     h2 {
       margin: 0 0 12px;
       font-family: "Silkscreen", monospace;
       font-size: 16px;
       color: var(--ink);
     }
-    h2::before { content: "♥ "; color: var(--pink-shade); }
+    h2::before { content: "▸ "; color: var(--accent); }
     p { line-height: 1.15; margin: 10px 0; }
-    .tagline { color: #9a4766; }
+    .tagline { color: var(--muted); }
 
     /* ---------- buttons ---------- */
     button {
@@ -118,86 +151,88 @@
       letter-spacing: .03em;
       cursor: pointer;
       color: white;
-      background: var(--pink);
-      text-shadow: 2px 2px 0 var(--pink-shade);
+      background: var(--accent);
+      text-shadow: 2px 2px 0 var(--accent-shade);
       box-shadow:
-        calc(var(--px) * -1) 0 0 0 var(--ink),
-        var(--px) 0 0 0 var(--ink),
-        0 calc(var(--px) * -1) 0 0 var(--ink),
-        0 var(--px) 0 0 var(--ink),
-        inset 0 calc(var(--px) * -1) 0 0 var(--pink-shade),
-        inset var(--px) var(--px) 0 0 rgba(255, 255, 255, .45);
+        calc(var(--px) * -1) 0 0 0 var(--outline),
+        var(--px) 0 0 0 var(--outline),
+        0 calc(var(--px) * -1) 0 0 var(--outline),
+        0 var(--px) 0 0 var(--outline),
+        inset 0 calc(var(--px) * -1) 0 0 var(--accent-shade),
+        inset var(--px) var(--px) 0 0 rgba(255, 255, 255, .35);
       transition: transform .05s steps(1);
     }
-    button:hover:not(:disabled) { background: #f6a0bf; }
+    button:hover:not(:disabled) { background: var(--accent-hover); }
     button:active:not(:disabled) {
       transform: translateY(var(--px));
       box-shadow:
-        calc(var(--px) * -1) 0 0 0 var(--ink),
-        var(--px) 0 0 0 var(--ink),
-        0 calc(var(--px) * -1) 0 0 var(--ink),
-        0 var(--px) 0 0 var(--ink),
-        inset 0 var(--px) 0 0 var(--pink-shade);
+        calc(var(--px) * -1) 0 0 0 var(--outline),
+        var(--px) 0 0 0 var(--outline),
+        0 calc(var(--px) * -1) 0 0 var(--outline),
+        0 var(--px) 0 0 var(--outline),
+        inset 0 var(--px) 0 0 var(--accent-shade);
     }
     button:disabled { opacity: .55; cursor: wait; }
-    button:focus-visible { outline: var(--px) dashed var(--lilac); outline-offset: 6px; }
+    button:focus-visible { outline: var(--px) dashed var(--accent); outline-offset: 6px; }
 
     /* ---------- tabs ---------- */
     .tabs { display: flex; gap: 12px; margin: 22px 0 22px; }
     .tab {
       flex: 1;
-      background: var(--pink-pale);
+      background: var(--surface-2);
       color: var(--ink);
       text-shadow: none;
       box-shadow:
-        calc(var(--px) * -1) 0 0 0 var(--ink),
-        var(--px) 0 0 0 var(--ink),
-        0 calc(var(--px) * -1) 0 0 var(--ink),
-        0 var(--px) 0 0 var(--ink),
-        inset 0 calc(var(--px) * -1) 0 0 var(--pink-mid);
+        calc(var(--px) * -1) 0 0 0 var(--outline),
+        var(--px) 0 0 0 var(--outline),
+        0 calc(var(--px) * -1) 0 0 var(--outline),
+        0 var(--px) 0 0 var(--outline),
+        inset 0 calc(var(--px) * -1) 0 0 var(--line);
     }
-    .tab:hover:not(:disabled) { background: white; }
+    .tab:hover:not(:disabled) { background: var(--surface); }
     .tab.active {
-      background: var(--pink);
+      background: var(--accent);
       color: white;
-      text-shadow: 2px 2px 0 var(--pink-shade);
+      text-shadow: 2px 2px 0 var(--accent-shade);
       transform: translateY(var(--px));
       box-shadow:
-        calc(var(--px) * -1) 0 0 0 var(--ink),
-        var(--px) 0 0 0 var(--ink),
-        0 calc(var(--px) * -1) 0 0 var(--ink),
-        0 var(--px) 0 0 var(--ink),
-        inset 0 var(--px) 0 0 var(--pink-shade);
+        calc(var(--px) * -1) 0 0 0 var(--outline),
+        var(--px) 0 0 0 var(--outline),
+        0 calc(var(--px) * -1) 0 0 var(--outline),
+        0 var(--px) 0 0 var(--outline),
+        inset 0 var(--px) 0 0 var(--accent-shade);
     }
     .tab.active::before { content: "» "; }
     .tab.active::after { content: " «"; }
 
     /* ---------- inputs ---------- */
-    label { display: block; margin-top: 16px; font-size: 20px; color: #9a4766; }
+    label { display: block; margin-top: 16px; font-size: 20px; color: var(--muted); }
     textarea, input {
       display: block;
       width: calc(100% - var(--px) * 2);
       margin: var(--px);
       border: 0;
-      background: var(--cream);
+      background: var(--field);
       color: var(--ink);
       font-family: "VT323", monospace;
       font-size: 24px;
       box-shadow:
-        calc(var(--px) * -1) 0 0 0 var(--ink),
-        var(--px) 0 0 0 var(--ink),
-        0 calc(var(--px) * -1) 0 0 var(--ink),
-        0 var(--px) 0 0 var(--ink),
-        inset var(--px) var(--px) 0 0 rgba(107, 30, 54, .12);
+        calc(var(--px) * -1) 0 0 0 var(--outline),
+        var(--px) 0 0 0 var(--outline),
+        0 calc(var(--px) * -1) 0 0 var(--outline),
+        0 var(--px) 0 0 var(--outline),
+        inset var(--px) var(--px) 0 0 var(--shadow);
     }
-    textarea::placeholder, input::placeholder { color: #c58aa0; }
-    textarea:focus, input:focus { outline: none; background: white; }
-    textarea:focus, input:focus { box-shadow:
-        calc(var(--px) * -1) 0 0 0 var(--pink-shade),
-        var(--px) 0 0 0 var(--pink-shade),
-        0 calc(var(--px) * -1) 0 0 var(--pink-shade),
-        0 var(--px) 0 0 var(--pink-shade),
-        inset var(--px) var(--px) 0 0 rgba(107, 30, 54, .12); }
+    textarea::placeholder, input::placeholder { color: var(--muted); opacity: .8; }
+    textarea:focus, input:focus {
+      outline: none;
+      box-shadow:
+        calc(var(--px) * -1) 0 0 0 var(--accent),
+        var(--px) 0 0 0 var(--accent),
+        0 calc(var(--px) * -1) 0 0 var(--accent),
+        0 var(--px) 0 0 var(--accent),
+        inset var(--px) var(--px) 0 0 var(--shadow);
+    }
     textarea { min-height: 120px; resize: vertical; padding: 10px 14px; }
     input { padding: 8px 14px; }
     .row { display: flex; gap: 12px; margin-top: 14px; align-items: stretch; }
@@ -207,24 +242,20 @@
     .panel { display: none; }
     .panel.active { display: block; }
     .status { min-height: 26px; margin: 14px 0 0; }
-    .status:not(:empty)::before { content: "> "; color: var(--pink-shade); }
+    .status:not(:empty)::before { content: "> "; color: var(--accent); }
+    .status.is-green { color: var(--green-shade); }
+    .status.is-yellow { color: var(--yellow-shade); }
+    .status.is-red { color: var(--red-shade); }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) .status.is-green { color: var(--green); }
+      :root:not([data-theme="light"]) .status.is-yellow { color: var(--yellow); }
+      :root:not([data-theme="light"]) .status.is-red { color: var(--red); }
+    }
 
     /* ---------- hint ---------- */
-    .hint-button {
-      margin-top: 16px;
-      background: var(--lilac);
-      text-shadow: 2px 2px 0 #7c5bd1;
-      box-shadow:
-        calc(var(--px) * -1) 0 0 0 var(--ink),
-        var(--px) 0 0 0 var(--ink),
-        0 calc(var(--px) * -1) 0 0 var(--ink),
-        0 var(--px) 0 0 var(--ink),
-        inset 0 calc(var(--px) * -1) 0 0 #7c5bd1,
-        inset var(--px) var(--px) 0 0 rgba(255, 255, 255, .45);
-    }
-    .hint-button:hover:not(:disabled) { background: #c3a0ff; }
+    .hint-button { margin-top: 16px; }
     .hint-button::before { content: "? "; }
-    .hint-message { min-height: 24px; margin: 10px 0 0; color: #9a4766; }
+    .hint-message { min-height: 24px; margin: 10px 0 0; color: var(--muted); }
     .hint-word {
       margin: 8px 0;
       color: var(--ink);
@@ -234,52 +265,82 @@
       overflow-wrap: anywhere;
     }
 
-    /* ---------- guess list (health-bar style) ---------- */
-    .guesses { display: grid; gap: 14px; margin-top: 18px; }
+    /* ---------- stats + legend ---------- */
+    .stats {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px 16px;
+      margin-top: 22px;
+      font-family: "Silkscreen", monospace;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .stats[hidden] { display: none; }
+    .count b { color: var(--ink); font-weight: 700; }
+    .legend { display: flex; gap: 14px; flex-wrap: wrap; }
+    .legend span { display: inline-flex; align-items: center; gap: 6px; }
+    .legend i { width: 12px; height: 12px; display: inline-block; box-shadow: 0 0 0 2px var(--outline); }
+    .legend .g { background: var(--green); }
+    .legend .y { background: var(--yellow); }
+    .legend .r { background: var(--red); }
+
+    /* ---------- guess list (Contexto-style bars) ---------- */
+    .last-guess { margin-top: 14px; }
+    .last-guess:empty { display: none; }
+    .last-guess .guess { box-shadow:
+        calc(var(--px) * -1) 0 0 0 var(--accent),
+        var(--px) 0 0 0 var(--accent),
+        0 calc(var(--px) * -1) 0 0 var(--accent),
+        0 var(--px) 0 0 var(--accent); }
+    .divider { height: var(--px); margin: 18px 0 4px; background: var(--line); }
+    .divider[hidden] { display: none; }
+    .guesses { display: grid; gap: 12px; margin-top: 14px; }
     .guess {
-      display: grid;
-      grid-template-columns: 110px 1fr 70px;
+      position: relative;
+      display: flex;
+      justify-content: space-between;
       align-items: center;
       gap: 12px;
+      min-height: 40px;
+      margin: var(--px);
+      padding: 4px 14px;
+      background: var(--track);
+      overflow: hidden;
+      box-shadow:
+        calc(var(--px) * -1) 0 0 0 var(--outline),
+        var(--px) 0 0 0 var(--outline),
+        0 calc(var(--px) * -1) 0 0 var(--outline),
+        0 var(--px) 0 0 var(--outline);
       animation: guess-in .3s steps(3) both;
     }
+    .fill {
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 0;
+      background: var(--red);
+      box-shadow: inset 0 var(--px) 0 0 rgba(255, 255, 255, .35), inset 0 calc(var(--px) * -1) 0 0 var(--red-shade);
+      transition: width .6s steps(10);
+    }
+    .guess.green .fill { background: var(--green); box-shadow: inset 0 var(--px) 0 0 rgba(255, 255, 255, .35), inset 0 calc(var(--px) * -1) 0 0 var(--green-shade); }
+    .guess.yellow .fill { background: var(--yellow); box-shadow: inset 0 var(--px) 0 0 rgba(255, 255, 255, .35), inset 0 calc(var(--px) * -1) 0 0 var(--yellow-shade); }
+    .guess-name, .score { position: relative; z-index: 1; }
     .guess-name {
+      min-width: 0;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-      font-size: 24px;
+      font-size: 26px;
     }
-    .track {
-      position: relative;
-      height: 20px;
-      margin: var(--px);
-      background: var(--ink-dark);
-      box-shadow:
-        calc(var(--px) * -1) 0 0 0 var(--ink),
-        var(--px) 0 0 0 var(--ink),
-        0 calc(var(--px) * -1) 0 0 var(--ink),
-        0 var(--px) 0 0 var(--ink);
-    }
-    .fill {
-      height: 100%;
-      width: 0;
-      background: var(--pink);
-      box-shadow: inset 0 var(--px) 0 0 rgba(255, 255, 255, .5), inset 0 calc(var(--px) * -1) 0 0 var(--pink-shade);
-      transition: width .6s steps(10);
-    }
-    .guess.warm .fill { background: #ff7aa8; }
-    .guess.hot .fill {
-      background: #ff4f8b;
-      box-shadow: inset 0 var(--px) 0 0 rgba(255, 255, 255, .55), inset 0 calc(var(--px) * -1) 0 0 #c22a62;
-    }
-    .guess.latest .guess-name { color: var(--pink-shade); }
-    .guess.latest .guess-name::before { content: "♥ "; }
     .score {
-      text-align: right;
+      flex: none;
       font-family: "Silkscreen", monospace;
-      font-size: 14px;
+      font-size: 15px;
       font-variant-numeric: tabular-nums;
     }
+    .guess.latest .guess-name::before { content: "▸ "; color: var(--accent); }
+    .guess.correct .guess-name::after { content: " ★"; }
     @keyframes guess-in { from { opacity: 0; transform: translateX(-12px); } }
 
     /* ---------- reveal ---------- */
@@ -291,7 +352,7 @@
       place-items: center;
       padding: 20px 16px;
       overflow: hidden;
-      background: rgba(107, 30, 54, .45);
+      background: rgba(15, 20, 25, .55);
       opacity: 0;
       visibility: hidden;
       transition: opacity .25s steps(4), visibility .25s;
@@ -317,14 +378,14 @@
     .letter-card h2 {
       margin: 0;
       font-size: 20px;
-      color: var(--pink-shade);
-      text-shadow: 2px 2px 0 var(--ink);
+      color: var(--green);
+      text-shadow: 2px 2px 0 var(--outline);
     }
     .letter-card h2::before { content: ""; }
     .revealed-message {
       margin: 14px var(--px) 20px;
       padding: 14px;
-      background: var(--cream);
+      background: var(--surface-2);
       color: var(--ink);
       font-size: 24px;
       line-height: 1.15;
@@ -332,10 +393,10 @@
       white-space: pre-wrap;
       text-align: left;
       box-shadow:
-        calc(var(--px) * -1) 0 0 0 var(--ink),
-        var(--px) 0 0 0 var(--ink),
-        0 calc(var(--px) * -1) 0 0 var(--ink),
-        0 var(--px) 0 0 var(--ink);
+        calc(var(--px) * -1) 0 0 0 var(--outline),
+        var(--px) 0 0 0 var(--outline),
+        0 calc(var(--px) * -1) 0 0 var(--outline),
+        0 var(--px) 0 0 var(--outline);
     }
     .close-reveal::before { content: "« "; }
     .close-reveal::after { content: " »"; }
@@ -364,8 +425,8 @@
       .titlebar .title { font-size: 11px; }
       .tabs { gap: 8px; }
       .tab { padding: 10px 8px 12px; font-size: 13px; }
-      .guess { grid-template-columns: 84px 1fr 60px; gap: 8px; }
-      .guess-name { font-size: 21px; }
+      .guess-name { font-size: 23px; }
+      .stats { font-size: 11px; }
     }
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; animation-delay: 0s !important; }
@@ -375,30 +436,22 @@
 <body>
   <main class="window">
     <div class="titlebar" aria-hidden="true">
-      <div class="hearts">
-        <span data-sprite="heart" data-colors="lilac" data-scale="3"></span>
-        <span data-sprite="heart" data-colors="pink" data-scale="3"></span>
-        <span data-sprite="heart" data-colors="white" data-scale="3"></span>
+      <div class="dots">
+        <span data-sprite="dot" data-colors="red" data-scale="3"></span>
+        <span data-sprite="dot" data-colors="yellow" data-scale="3"></span>
+        <span data-sprite="dot" data-colors="green" data-scale="3"></span>
       </div>
       <span class="title">message_contexto.exe</span>
       <span data-sprite="close" data-scale="3"></span>
     </div>
     <div class="window-body">
-      <h1>Message Contexto</h1>
+      <h1>Message <span class="accent">Contexto</span></h1>
       <p class="tagline">Write a message and the game chooses the word it considers most guessable.</p>
       <div class="tabs">
-        <button class="tab active" data-tab="set">Set message</button>
-        <button class="tab" data-tab="guess">Guess</button>
+        <button class="tab active" data-tab="guess">Guess</button>
+        <button class="tab" data-tab="set">Set message</button>
       </div>
-      <section id="set" class="panel active">
-        <h2>Write a message</h2>
-        <textarea id="message" maxlength="500" placeholder="For example: Wow! What an amazing game!"></textarea>
-        <label for="admin-key">Game owner key (only needed to set a message)</label>
-        <input id="admin-key" type="password" maxlength="200" placeholder="Only needed when setting a message" autocomplete="off">
-        <div class="row"><button id="save" class="primary">Set the word</button></div>
-        <p id="set-status" class="status"></p>
-      </section>
-      <section id="guess" class="panel">
+      <section id="guess" class="panel active">
         <h2>Make a guess</h2>
         <div class="row">
           <input id="guess-input" type="text" maxlength="40" placeholder="Type a word" autocomplete="off">
@@ -408,7 +461,25 @@
         <button id="hint-button" class="hint-button">Get a hint</button>
         <p id="hint-status" class="hint-message" aria-live="polite"></p>
         <p id="hint-word" class="hint-word" aria-live="polite"></p>
+        <div id="stats" class="stats" hidden>
+          <span class="count">Guesses: <b id="guess-count">0</b></span>
+          <span class="legend" aria-label="Color key">
+            <span><i class="g"></i>close</span>
+            <span><i class="y"></i>warm</span>
+            <span><i class="r"></i>far</span>
+          </span>
+        </div>
+        <div id="last-guess" class="last-guess" aria-live="polite"></div>
+        <div id="divider" class="divider" hidden></div>
         <div id="guesses" class="guesses"></div>
+      </section>
+      <section id="set" class="panel">
+        <h2>Write a message</h2>
+        <textarea id="message" maxlength="500" placeholder="For example: Wow! What an amazing game!"></textarea>
+        <label for="admin-key">Game owner key (only needed to set a message)</label>
+        <input id="admin-key" type="password" maxlength="200" placeholder="Only needed when setting a message" autocomplete="off">
+        <div class="row"><button id="save" class="primary">Set the word</button></div>
+        <p id="set-status" class="status"></p>
       </section>
     </div>
   </main>
@@ -416,10 +487,10 @@
     <canvas id="confetti" class="confetti" aria-hidden="true"></canvas>
     <section class="letter-card window" role="dialog" aria-modal="true" aria-labelledby="reveal-title">
       <div class="titlebar" aria-hidden="true">
-        <div class="hearts">
-          <span data-sprite="heart" data-colors="lilac" data-scale="3"></span>
-          <span data-sprite="heart" data-colors="pink" data-scale="3"></span>
-          <span data-sprite="heart" data-colors="white" data-scale="3"></span>
+        <div class="dots">
+          <span data-sprite="dot" data-colors="red" data-scale="3"></span>
+          <span data-sprite="dot" data-colors="yellow" data-scale="3"></span>
+          <span data-sprite="dot" data-colors="green" data-scale="3"></span>
         </div>
         <span class="title">new_message.txt</span>
         <span data-sprite="close" data-scale="3"></span>
@@ -442,22 +513,22 @@
 
     /* ---------- pixel sprites ---------- */
     const PALETTES = {
-      lilac: { k: "#6b1e36", p: "#b388ff", w: "#e6d8ff", s: "#7c5bd1" },
-      pink:  { k: "#6b1e36", p: "#f48fb1", w: "#ffe1ec", s: "#d9638f" },
-      white: { k: "#6b1e36", p: "#fff3f8", w: "#ffffff", s: "#f7c4d6" },
-      env:   { k: "#3a1a10", t: "#f0c48a", d: "#d49a5c", w: "#fff8f1", r: "#c7425f", l: "#3a1a10" },
-      close: { k: "#d9638f" }
+      red:    { k: "#0f1419", p: "#f91880", w: "#ff8cc0", s: "#b80e5c" },
+      yellow: { k: "#0f1419", p: "#ef7d31", w: "#f8b98c", s: "#b85715" },
+      green:  { k: "#0f1419", p: "#00ba7c", w: "#7fe0bd", s: "#00875a" },
+      env:    { k: "#0f1419", t: "#f0c48a", d: "#d49a5c", w: "#fffdf8", r: "#1d9bf0", l: "#0f1419" },
+      close:  { k: "#ffffff" }
     };
     const SPRITES = {
-      heart: [
-        ".kkk.kkk.",
-        "kpwpkpppk",
-        "kwpppppsk",
-        "kppppppsk",
-        ".kppppsk.",
-        "..kppsk..",
-        "...kpk...",
-        "....k...."
+      dot: [
+        "..kkkk..",
+        ".kwwppk.",
+        "kwppppsk",
+        "kppppppk",
+        "kppppppk",
+        "kpppppsk",
+        ".kpsssk.",
+        "..kkkk.."
       ],
       close: [
         "kk...kk",
@@ -517,7 +588,7 @@
 
     document.querySelectorAll("[data-sprite]").forEach(element => {
       const name = element.dataset.sprite;
-      const paletteName = element.dataset.colors || (name.startsWith("envelope") ? "env" : name === "close" ? "close" : "pink");
+      const paletteName = element.dataset.colors || (name.startsWith("envelope") ? "env" : name === "close" ? "close" : "green");
       element.innerHTML = pixelSVG(SPRITES[name], PALETTES[paletteName], Number(element.dataset.scale || 3));
     });
 
@@ -549,8 +620,8 @@
       canvas.height = window.innerHeight * ratio;
       context.setTransform(ratio, 0, 0, ratio, 0, 0);
       context.imageSmoothingEnabled = false;
-      const colors = ["#f48fb1", "#ff4f8b", "#b388ff", "#fff3f8", "#f0c48a", "#d9638f"];
-      const heart = [".x.x.", "xxxxx", "xxxxx", ".xxx.", "..x.."];
+      const colors = ["#00ba7c", "#ef7d31", "#f91880", "#1d9bf0", "#ffffff", "#7fe0bd"];
+      const heart = ["..x..", ".xxx.", "xxxxx", ".xxx.", "..x.."];
       const pieces = Array.from({ length: 110 }, () => ({
         x: Math.random() * window.innerWidth,
         y: -Math.random() * window.innerHeight,
@@ -624,8 +695,7 @@
           body: JSON.stringify({ message })
         });
         status.textContent = `The word has been set and is available to every player: ${data.word}`;
-        document.querySelector("#guesses").replaceChildren();
-        guessRows.clear();
+        resetGuesses();
         document.querySelector("#hint-status").textContent = "";
         document.querySelector("#hint-word").textContent = "";
         document.querySelector("#hint-button").disabled = false;
@@ -639,48 +709,85 @@
 
     const guessRows = new Map();
 
+    // Contexto's buckets: green = top 300, yellow = top 1500, red = everything else.
+    function category(rank) {
+      if (rank !== null && rank <= 300) return "green";
+      if (rank !== null && rank <= 1500) return "yellow";
+      return "red";
+    }
+
     function guessStatus(rank) {
       if (rank == null) return "Keep guessing.";
       if (rank <= 10) return "SO close!!";
-      if (rank <= 100) return "Getting warm...";
-      if (rank <= 500) return "Warmer...";
-      return "Keep guessing.";
+      if (rank <= 300) return "Very close!";
+      if (rank <= 1500) return "Getting warm...";
+      return "Far away. Keep guessing.";
     }
 
-    function markLatest(row) {
-      document.querySelectorAll(".guess.latest").forEach(element => element.classList.remove("latest"));
-      row.classList.add("latest");
+    function setGuessStatus(text, rank) {
+      const status = document.querySelector("#guess-status");
+      status.textContent = text;
+      status.classList.remove("is-green", "is-yellow", "is-red");
+      if (rank !== undefined) status.classList.add("is-" + category(rank));
+    }
+
+    function buildRow(word, rank, total, percentage, animateFill) {
+      const row = document.createElement("div");
+      row.className = "guess " + category(rank);
+      if (rank === 1) row.classList.add("correct");
+      const fill = document.createElement("div");
+      fill.className = "fill";
+      const name = document.createElement("span");
+      name.className = "guess-name";
+      name.textContent = word;
+      const score = document.createElement("span");
+      score.className = "score";
+      score.textContent = rank === null ? "?" : rank;
+      score.title = rank === null ? "" : `#${rank} of ${total} words`;
+      row.append(fill, name, score);
+      if (animateFill) {
+        requestAnimationFrame(() => requestAnimationFrame(() => { fill.style.width = percentage + "%"; }));
+      } else {
+        fill.style.width = percentage + "%";
+      }
+      return row;
+    }
+
+    function showLast(entry) {
+      document.querySelectorAll("#guesses .guess.latest").forEach(element => element.classList.remove("latest"));
+      entry.row.classList.add("latest");
+      document.querySelector("#last-guess").replaceChildren(
+        buildRow(entry.word, entry.rank, entry.total, entry.percentage, true)
+      );
+    }
+
+    function updateStats() {
+      document.querySelector("#guess-count").textContent = guessRows.size;
+      document.querySelector("#stats").hidden = guessRows.size === 0;
+      document.querySelector("#divider").hidden = guessRows.size === 0;
+    }
+
+    function resetGuesses() {
+      guessRows.clear();
+      document.querySelector("#guesses").replaceChildren();
+      document.querySelector("#last-guess").replaceChildren();
+      updateStats();
     }
 
     function addGuessRow(word, data) {
       const rank = data.rank ?? null;
-      const percentage = Math.round(data.score * 100);
-      const row = document.createElement("div");
-      row.className = "guess";
-      if (rank !== null && rank <= 300) row.classList.add("hot");
-      else if (rank !== null && rank <= 1500) row.classList.add("warm");
-      const name = document.createElement("span");
-      name.className = "guess-name";
-      name.textContent = word;
-      const track = document.createElement("div");
-      track.className = "track";
-      const fill = document.createElement("div");
-      fill.className = "fill";
-      track.append(fill);
-      const score = document.createElement("span");
-      score.className = "score";
-      score.textContent = rank === null ? "?" : "#" + rank;
-      score.title = rank === null ? "" : `#${rank} of ${data.total} words`;
-      row.append(name, track, score);
-      guessRows.set(word, { row, rank });
+      const percentage = Math.max(1, Math.round(data.score * 100));
+      const entry = { word, rank, total: data.total, percentage };
+      entry.row = buildRow(word, rank, data.total, percentage, true);
+      guessRows.set(word, entry);
 
       // Keep the list sorted closest-first (moving nodes keeps their animations).
       const list = document.querySelector("#guesses");
       [...guessRows.values()]
         .sort((a, b) => (a.rank ?? Infinity) - (b.rank ?? Infinity))
-        .forEach(entry => list.append(entry.row));
-      markLatest(row);
-      requestAnimationFrame(() => requestAnimationFrame(() => { fill.style.width = percentage + "%"; }));
+        .forEach(item => list.append(item.row));
+      showLast(entry);
+      updateStats();
     }
 
     async function makeGuess() {
@@ -688,13 +795,13 @@
       const input = document.querySelector("#guess-input");
       const guess = input.value.trim();
       if (!guess) {
-        document.querySelector("#guess-status").textContent = "Enter a guess.";
+        setGuessStatus("Enter a guess.");
         return;
       }
       const existing = guessRows.get(guess.toLowerCase());
       if (existing) {
-        markLatest(existing.row);
-        document.querySelector("#guess-status").textContent = `You already guessed "${guess}" (#${existing.rank ?? "?"}).`;
+        showLast(existing);
+        setGuessStatus(`You already guessed "${guess}" (#${existing.rank ?? "?"}).`, existing.rank);
         input.value = "";
         return;
       }
@@ -705,8 +812,7 @@
           body: JSON.stringify({ guess })
         });
         addGuessRow(guess.toLowerCase(), data);
-        document.querySelector("#guess-status").textContent =
-          data.correct ? "Correct! You found the word." : guessStatus(data.rank);
+        setGuessStatus(data.correct ? "Correct! You found the word." : guessStatus(data.rank), data.rank ?? null);
         input.value = "";
         if (data.correct) {
           document.querySelector("#hint-button").disabled = true;
@@ -714,7 +820,7 @@
         }
         input.focus();
       } catch (error) {
-        document.querySelector("#guess-status").textContent = error.message;
+        setGuessStatus(error.message);
       } finally {
         button.disabled = false;
       }
