@@ -1,9 +1,7 @@
 import base64
-import hashlib
-import hmac
 import json
+import math
 import os
-import random
 import re
 from pathlib import Path
 from urllib.error import HTTPError, URLError
@@ -15,9 +13,9 @@ from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 
 if __package__:
-    from .similarity_scorer import SimilarityScorer
+    from .similarity_scorer import SimilarityScorer, parts_of_speech
 else:
-    from similarity_scorer import SimilarityScorer
+    from similarity_scorer import SimilarityScorer, parts_of_speech
 
 BASE_DIR = Path(__file__).resolve().parent
 PROJECT_DIR = BASE_DIR.parent
@@ -25,8 +23,9 @@ GAME_STATE_FILE = BASE_DIR / "game_state.json"
 GITHUB_API = "https://api.github.com"
 MAX_MESSAGE_LENGTH = 500
 MAX_GUESS_LENGTH = 40
-MAX_HINT_TOKEN_LENGTH = 2048
-LOCAL_HINT_SIGNING_KEY = os.urandom(32)
+MAX_SENDER_LENGTH = 60
+MAX_HINT_GUESSES = 2000
+FIRST_HINT_RANK = 300
 
 STOP_WORDS = {
     "a", "about", "all", "and", "are", "as", "at", "be", "because", "been",
@@ -56,61 +55,6 @@ scorer = SimilarityScorer()
 
 class GitHubStateError(Exception):
     pass
-
-
-def hint_signing_key():
-    key = os.environ.get("STATE_ENCRYPTION_KEY")
-    if key:
-        try:
-            encryption_key = base64.urlsafe_b64decode(key.encode("ascii"))
-        except (ValueError, UnicodeEncodeError) as error:
-            raise GitHubStateError("STATE_ENCRYPTION_KEY is invalid.") from error
-        return hmac.new(encryption_key, b"message-contexto-hints", hashlib.sha256).digest()
-    return LOCAL_HINT_SIGNING_KEY
-
-
-def create_hint_token(game_id, revealed_indices, started=True):
-    payload = json.dumps(
-        {"game_id": game_id, "revealed_indices": revealed_indices, "started": started},
-        separators=(",", ":"),
-        sort_keys=True,
-    ).encode("utf-8")
-    signature = hmac.new(hint_signing_key(), payload, hashlib.sha256).digest()
-    encoded_payload = base64.urlsafe_b64encode(payload).decode("ascii").rstrip("=")
-    encoded_signature = base64.urlsafe_b64encode(signature).decode("ascii").rstrip("=")
-    return f"{encoded_payload}.{encoded_signature}"
-
-
-def read_hint_token(token, game_id, word):
-    if not isinstance(token, str) or not token or len(token) > MAX_HINT_TOKEN_LENGTH:
-        raise ValueError("Invalid hint token.")
-    try:
-        encoded_payload, encoded_signature = token.split(".", 1)
-        payload = base64.urlsafe_b64decode(encoded_payload + "=" * (-len(encoded_payload) % 4))
-        signature = base64.urlsafe_b64decode(encoded_signature + "=" * (-len(encoded_signature) % 4))
-        expected_signature = hmac.new(hint_signing_key(), payload, hashlib.sha256).digest()
-        token_data = json.loads(payload)
-    except (ValueError, UnicodeEncodeError, UnicodeDecodeError, json.JSONDecodeError) as error:
-        raise ValueError("Invalid hint token.") from error
-
-    if not hmac.compare_digest(signature, expected_signature):
-        raise ValueError("Invalid hint token.")
-    if not isinstance(token_data, dict) or token_data.get("game_id") != game_id:
-        return False, []
-
-    revealed = token_data.get("revealed_indices")
-    started = token_data.get("started")
-    if not isinstance(started, bool):
-        raise ValueError("Invalid hint token.")
-    if not isinstance(revealed, list) or any(
-        isinstance(index, bool) or not isinstance(index, int)
-        or index < 0 or index >= len(word) or not word[index].isalpha()
-        for index in revealed
-    ):
-        raise ValueError("Invalid hint token.")
-    if len(revealed) != len(set(revealed)):
-        raise ValueError("Invalid hint token.")
-    return started, revealed
 
 
 def state_cipher():
@@ -164,11 +108,22 @@ def decrypt_state_field(data, encrypted_name, legacy_name):
         raise GitHubStateError("Could not decrypt the shared game state.") from error
 
 
+def clean_text(value):
+    return value.strip() if isinstance(value, str) and value.strip() else None
+
+
+def clean_state(word, message, game_id, sender):
+    """Return (secret, message, game_id, sender). Older secrets like "kids" map to "kid"."""
+    word = clean_text(word)
+    secret = scorer.normalize(word) if word else None
+    return secret, clean_text(message), game_id, clean_text(sender)
+
+
 def load_state():
     if os.environ.get("GITHUB_TOKEN"):
         file_data = github_contents_request("GET")
         if file_data is None:
-            return None, None
+            return clean_state(None, None, None, None)
         try:
             contents = base64.b64decode(file_data["content"]).decode("utf-8")
             data = json.loads(contents)
@@ -178,31 +133,27 @@ def load_state():
             raise GitHubStateError("The game-state file on GitHub is invalid.")
         word = decrypt_state_field(data, "encrypted_user_picked_word", "user_picked_word")
         message = decrypt_state_field(data, "encrypted_message", "message")
-        game_id = data.get("game_id")
-        clean_word = word.strip().lower() if isinstance(word, str) and word.strip() else None
-        clean_message = message.strip() if isinstance(message, str) and message.strip() else None
-        return clean_word, clean_message, game_id
+        sender = decrypt_state_field(data, "encrypted_sender", "sender")
+        return clean_state(word, message, data.get("game_id"), sender)
 
     try:
         with open(GAME_STATE_FILE, "r") as file:
             data = json.load(file)
             if not isinstance(data, dict):
                 raise GitHubStateError("The local game-state file is invalid.")
-            word = data.get("user_picked_word")
-            message = data.get("message")
-            game_id = data.get("game_id")
-            clean_word = word.strip().lower() if isinstance(word, str) and word.strip() else None
-            clean_message = message.strip() if isinstance(message, str) and message.strip() else None
-            return clean_word, clean_message, game_id
+            return clean_state(
+                data.get("user_picked_word"), data.get("message"),
+                data.get("game_id"), data.get("sender"),
+            )
     except (FileNotFoundError, json.JSONDecodeError):
-        return None, None, None
+        return clean_state(None, None, None, None)
 
 
 def load_word():
     return load_state()[0]
 
 
-def save_word(word, message):
+def save_word(word, message, sender=None):
     game_id = os.urandom(16).hex()
     if os.environ.get("GITHUB_TOKEN"):
         existing_file = github_contents_request("GET")
@@ -210,6 +161,7 @@ def save_word(word, message):
         content = base64.b64encode(json.dumps({
             "encrypted_user_picked_word": cipher.encrypt(word.encode("utf-8")).decode("ascii"),
             "encrypted_message": cipher.encrypt(message.encode("utf-8")).decode("ascii"),
+            "encrypted_sender": cipher.encrypt((sender or "").encode("utf-8")).decode("ascii"),
             "game_id": game_id,
         }).encode("utf-8")).decode("ascii")
         payload = {
@@ -223,26 +175,54 @@ def save_word(word, message):
         return
 
     with open(GAME_STATE_FILE, "w") as file:
-        json.dump({"user_picked_word": word, "message": message, "game_id": game_id}, file)
+        json.dump({"user_picked_word": word, "message": message, "sender": sender, "game_id": game_id}, file)
+
+
+# Filler words that are real dictionary words but make poor answers.
+FILLER_WORDS = {
+    "actually", "almost", "already", "also", "always", "anything", "anyway", "basically",
+    "bit", "couple", "day", "doing", "else", "enough", "even", "ever", "every", "everyone",
+    "everything", "feel", "get", "getting", "go", "going", "gonna", "good", "got", "great",
+    "guy", "instead", "kind", "know", "least", "let", "literally", "lot", "lots", "make",
+    "maybe", "much", "need", "never", "nothing", "now", "okay", "one", "pretty", "probably",
+    "quite", "rather", "really", "right", "said", "say", "see", "something", "someone",
+    "sometimes", "sort", "still", "stuff", "sure", "take", "tell", "thing", "think", "though",
+    "time", "today", "together", "tomorrow", "tonight", "totally", "very", "way", "well",
+    "whatever", "yeah", "yes", "yesterday", "yet",
+    # interjections
+    "aww", "haha", "hello", "hey", "lol", "miss", "nah", "omg", "please", "sorry", "thank",
+    "thanks", "wow", "yay",
+}
+POS_SCORES = {"NOUN": 1.0, "ADJ": 0.55, "VERB": 0.5, "ADV": 0.1}
 
 
 def choose_word(message):
-    candidates = re.findall(r"[A-Za-z]+(?:['-][A-Za-z]+)*", message)
+    """Pick the most guessable word: a specific, real noun beats names and filler words."""
+    tokens = list(re.finditer(r"[A-Za-z]+(?:['-][A-Za-z]+)*", message))
     scored = []
-    for index, raw_word in enumerate(candidates):
-        word = raw_word.strip("'-").lower()
-        if len(word) < 3 or word in STOP_WORDS or scorer.is_too_common(word):
+    for position, match in enumerate(tokens):
+        raw_word = match.group().strip("'-")
+        lowered = raw_word.lower()
+        if len(lowered) < 3 or lowered in STOP_WORDS:
+            continue
+        word = scorer.normalize(lowered)
+        if not scorer.knows(word) or scorer.is_too_common(word):
             continue
 
-        in_vocabulary = scorer.knows(word)
-        length_score = min(len(word), 12) / 12
-        position_score = (index + 1) / max(len(candidates), 1)
-        capitalized = raw_word[:1].isupper()
-
-        score = length_score * 0.35 + position_score * 0.25
-        # Strongly prefer words the model knows, otherwise guesses can't be ranked.
-        score += 1.0 if in_vocabulary else 0.0
-        score += 0.10 if capitalized else 0
+        tags = parts_of_speech(lowered) | parts_of_speech(word)
+        # No dictionary entry means it's almost always a name (e.g. "riya", "singh").
+        score = max((POS_SCORES.get(tag, 0) for tag in tags), default=-0.6)
+        # Capitalized in the middle of a sentence is probably a name too.
+        start = match.start()
+        sentence_start = not message[:start].strip() or message[:start].rstrip()[-1] in ".!?"
+        if raw_word[:1].isupper() and not sentence_start:
+            score -= 0.4
+        # Very common words make dull answers; specific words are more fun.
+        frequency = scorer.frequency_rank(word)
+        score += 0.6 * min(1.0, math.log(frequency + 2) / math.log(3000))
+        score += 0.1 * (position + 1) / len(tokens)
+        if lowered in FILLER_WORDS or word in FILLER_WORDS:
+            score -= 1.5
         scored.append((score, word))
 
     if not scored:
@@ -272,16 +252,15 @@ def health():
 
 @app.post("/api/message")
 def set_message():
-    if os.environ.get("GITHUB_TOKEN") and not os.environ.get("GAME_ADMIN_KEY"):
-        return jsonify({"error": "Game admin access is not configured on the server."}), 503
-    admin_key = os.environ.get("GAME_ADMIN_KEY")
-    if admin_key and not hmac.compare_digest(
-        request.headers.get("X-Game-Admin-Key", ""), admin_key
-    ):
-        return jsonify({"error": "Only the game owner can set a new message."}), 403
-
     data = request.get_json(silent=True)
-    message = data.get("message", "").strip() if isinstance(data, dict) else ""
+    if not isinstance(data, dict):
+        data = {}
+    message = data.get("message", "")
+    message = message.strip() if isinstance(message, str) else ""
+    sender = data.get("from", "")
+    sender = sender.strip() if isinstance(sender, str) else ""
+    if len(sender) > MAX_SENDER_LENGTH:
+        return jsonify({"error": "The from line must be 60 characters or fewer."}), 400
     if not message:
         return jsonify({"error": "Enter a message."}), 400
     if len(message) > MAX_MESSAGE_LENGTH:
@@ -292,7 +271,7 @@ def set_message():
         return jsonify({"error": "The message needs at least one usable word."}), 400
 
     try:
-        save_word(word, message)
+        save_word(word, message, sender or None)
     except GitHubStateError as error:
         app.logger.error("%s", error)
         return jsonify({"error": "Could not save the shared word to GitHub."}), 503
@@ -307,7 +286,7 @@ def guess():
         return jsonify({"error": "Guesses must be 40 characters or fewer."}), 400
 
     try:
-        secret, message, _ = load_state()
+        secret, message, _, sender = load_state()
     except GitHubStateError as error:
         app.logger.error("%s", error)
         return jsonify({"error": "Could not read the shared game state."}), 503
@@ -316,6 +295,7 @@ def guess():
     if not guess_word:
         return jsonify({"error": "Enter a guess."}), 400
 
+    guess_word = scorer.normalize(guess_word)
     is_correct = guess_word == secret
     if is_correct:
         rank = 1
@@ -326,73 +306,56 @@ def guess():
             return jsonify({"error": "I don't know that word, try another one."}), 400
         rank = scorer.rank(secret, guess_word)
 
+    return jsonify(guess_response(guess_word, rank, is_correct, message, sender))
+
+
+def guess_response(word, rank, is_correct, message, sender):
     response = {
+        "word": word,
         "score": round(1.0 if is_correct else scorer.score_from_rank(rank), 4),
         "rank": rank,
         "total": scorer.total,
         "correct": is_correct,
     }
-    if is_correct and message:
-        response["message"] = message
-    return jsonify(response)
+    if is_correct:
+        if message:
+            response["message"] = message
+        if sender:
+            response["from"] = sender
+    return response
 
 
 @app.post("/api/hint")
 def hint():
+    """Contexto-style hint: a word halfway between your best guess and the answer."""
     data = request.get_json(silent=True)
-    token = data.get("token") if isinstance(data, dict) else None
+    guesses = data.get("guesses", []) if isinstance(data, dict) else []
+    if not isinstance(guesses, list) or len(guesses) > MAX_HINT_GUESSES:
+        return jsonify({"error": "Invalid guess list."}), 400
 
     try:
-        secret, message, game_id = load_state()
+        secret, message, _, sender = load_state()
     except GitHubStateError as error:
         app.logger.error("%s", error)
         return jsonify({"error": "Could not read the shared game state."}), 503
-    if secret is None:
+    if secret is None or not scorer.knows(secret):
         return jsonify({"error": "No word has been set."}), 400
 
-    if not isinstance(game_id, str) or not game_id:
-        game_id = "legacy-game"
+    ranks = [
+        scorer.rank(secret, scorer.normalize(guess))
+        for guess in guesses
+        if isinstance(guess, str) and 0 < len(guess) <= MAX_GUESS_LENGTH
+    ]
+    ranks = [rank for rank in ranks if rank is not None]
+    best = min(ranks, default=None)
+    if best == 1:
+        return jsonify({"error": "You already found the word!"}), 400
 
-    try:
-        started, revealed = read_hint_token(token, game_id, secret) if token else (False, [])
-    except (GitHubStateError, ValueError):
-        return jsonify({"error": "Your hint state is invalid. Refresh and try again."}), 400
-
-    letter_indices = [index for index, character in enumerate(secret) if character.isalpha()]
-    if not letter_indices:
-        return jsonify({"error": "The answer has no letters to reveal."}), 400
-
-    if not started:
-        return jsonify({
-            "letter_count": len(letter_indices),
-            "revealed_count": 0,
-            "pattern": "".join(
-                character if not character.isalpha() else "_"
-                for character in secret
-            ),
-            "token": create_hint_token(game_id, [], started=True),
-            "complete": False,
-        })
-
-    remaining = [index for index in letter_indices if index not in revealed]
-    if remaining:
-        revealed.append(random.choice(remaining))
-
-    pattern = "".join(
-        character if not character.isalpha() or index in revealed else "_"
-        for index, character in enumerate(secret)
-    )
-    complete = len(revealed) == len(letter_indices)
-    response = {
-        "letter_count": len(letter_indices),
-        "revealed_count": len(revealed),
-        "pattern": pattern,
-        "token": create_hint_token(game_id, revealed),
-        "complete": complete,
-    }
-    if complete and message:
-        response["message"] = message
-    return jsonify(response)
+    target = min(FIRST_HINT_RANK, scorer.total) if best is None else max(1, best // 2)
+    if best is not None and best > FIRST_HINT_RANK * 2:
+        target = FIRST_HINT_RANK
+    word = scorer.word_at_rank(secret, target)
+    return jsonify(guess_response(word, target, target == 1, message, sender))
 
 
 if __name__ == "__main__":

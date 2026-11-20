@@ -256,14 +256,7 @@
     .hint-button { margin-top: 16px; }
     .hint-button::before { content: "? "; }
     .hint-message { min-height: 24px; margin: 10px 0 0; color: var(--muted); }
-    .hint-word {
-      margin: 8px 0;
-      color: var(--ink);
-      font-family: "Silkscreen", monospace;
-      font-size: 26px;
-      letter-spacing: .3em;
-      overflow-wrap: anywhere;
-    }
+    .guess.hinted .guess-name::after { content: " (hint)"; color: var(--muted); font-size: .8em; }
 
     /* ---------- stats + legend ---------- */
     .stats {
@@ -398,6 +391,8 @@
         0 calc(var(--px) * -1) 0 0 var(--outline),
         0 var(--px) 0 0 var(--outline);
     }
+    .revealed-from { margin: -8px var(--px) 18px; text-align: right; color: var(--muted); }
+    .revealed-from:empty { display: none; }
     .close-reveal::before { content: "« "; }
     .close-reveal::after { content: " »"; }
 
@@ -460,7 +455,6 @@
         <p id="guess-status" class="status"></p>
         <button id="hint-button" class="hint-button">Get a hint</button>
         <p id="hint-status" class="hint-message" aria-live="polite"></p>
-        <p id="hint-word" class="hint-word" aria-live="polite"></p>
         <div id="stats" class="stats" hidden>
           <span class="count">Guesses: <b id="guess-count">0</b></span>
           <span class="legend" aria-label="Color key">
@@ -476,8 +470,8 @@
       <section id="set" class="panel">
         <h2>Write a message</h2>
         <textarea id="message" maxlength="500" placeholder="For example: Wow! What an amazing game!"></textarea>
-        <label for="admin-key">Game owner key (only needed to set a message)</label>
-        <input id="admin-key" type="password" maxlength="200" placeholder="Only needed when setting a message" autocomplete="off">
+        <label for="sender">From (optional)</label>
+        <input id="sender" type="text" maxlength="60" placeholder="Your name" autocomplete="off">
         <div class="row"><button id="save" class="primary">Set the word</button></div>
         <p id="set-status" class="status"></p>
       </section>
@@ -502,6 +496,7 @@
         </div>
         <h2 id="reveal-title">You found the word!</h2>
         <p id="revealed-message" class="revealed-message"></p>
+        <p id="revealed-from" class="revealed-from"></p>
         <button id="close-reveal" class="close-reveal">Exit</button>
       </div>
     </section>
@@ -602,9 +597,10 @@
       return data;
     }
 
-    function showLetter(message) {
+    function showLetter(message, sender) {
       const reveal = document.querySelector("#reveal");
       document.querySelector("#revealed-message").textContent = message;
+      document.querySelector("#revealed-from").textContent = sender ? "— from " + sender : "";
       reveal.classList.remove("show");
       reveal.setAttribute("aria-hidden", "false");
       requestAnimationFrame(() => requestAnimationFrame(() => reveal.classList.add("show")));
@@ -691,15 +687,12 @@
       try {
         const data = await api("/api/message", {
           method: "POST",
-          headers: { "X-Game-Admin-Key": document.querySelector("#admin-key").value },
-          body: JSON.stringify({ message })
+          body: JSON.stringify({ message, from: document.querySelector("#sender").value.trim() })
         });
         status.textContent = `The word has been set and is available to every player: ${data.word}`;
         resetGuesses();
         document.querySelector("#hint-status").textContent = "";
-        document.querySelector("#hint-word").textContent = "";
         document.querySelector("#hint-button").disabled = false;
-        localStorage.removeItem("message-contexto-hint-token");
       } catch (error) {
         status.textContent = error.message;
       } finally {
@@ -774,11 +767,12 @@
       updateStats();
     }
 
-    function addGuessRow(word, data) {
+    function addGuessRow(word, data, hinted = false) {
       const rank = data.rank ?? null;
       const percentage = Math.max(1, Math.round(data.score * 100));
       const entry = { word, rank, total: data.total, percentage };
       entry.row = buildRow(word, rank, data.total, percentage, true);
+      if (hinted) entry.row.classList.add("hinted");
       guessRows.set(word, entry);
 
       // Keep the list sorted closest-first (moving nodes keeps their animations).
@@ -811,13 +805,18 @@
           method: "POST",
           body: JSON.stringify({ guess })
         });
-        addGuessRow(guess.toLowerCase(), data);
-        setGuessStatus(data.correct ? "Correct! You found the word." : guessStatus(data.rank), data.rank ?? null);
+        const word = data.word || guess.toLowerCase();
         input.value = "";
-        if (data.correct) {
-          document.querySelector("#hint-button").disabled = true;
-          showLetter(data.message || "The answer was set before message reveals were added. Ask the owner to set a new message.");
+        const already = guessRows.get(word);
+        if (already) {
+          // e.g. "claws" after "claw": both count as the same word.
+          showLast(already);
+          setGuessStatus(`You already guessed "${word}" (#${already.rank ?? "?"}).`, already.rank);
+          return;
         }
+        addGuessRow(word, data);
+        setGuessStatus(data.correct ? "Correct! You found the word." : guessStatus(data.rank), data.rank ?? null);
+        if (data.correct) win(data);
         input.focus();
       } catch (error) {
         setGuessStatus(error.message);
@@ -826,11 +825,17 @@
       }
     }
 
+    function win(data) {
+      document.querySelector("#hint-button").disabled = true;
+      showLetter(data.message || "The answer was set before message reveals were added. Ask the owner to set a new message.", data.from);
+    }
+
     document.querySelector("#guess-button").addEventListener("click", makeGuess);
     document.querySelector("#guess-input").addEventListener("keydown", event => {
       if (event.key === "Enter") makeGuess();
     });
 
+    // Contexto-style hint: reveals a word halfway between your best guess and the answer.
     document.querySelector("#hint-button").addEventListener("click", async () => {
       const button = document.querySelector("#hint-button");
       const status = document.querySelector("#hint-status");
@@ -839,24 +844,15 @@
       try {
         const data = await api("/api/hint", {
           method: "POST",
-          body: JSON.stringify({
-            token: localStorage.getItem("message-contexto-hint-token")
-          })
+          body: JSON.stringify({ guesses: [...guessRows.keys()] })
         });
-        localStorage.setItem("message-contexto-hint-token", data.token);
-        document.querySelector("#hint-word").textContent = data.pattern;
-        if (data.revealed_count === 0) {
-          status.textContent = `The word has ${data.letter_count} letters. Press again to reveal a random letter.`;
-        } else {
-          status.textContent = `Revealed ${data.revealed_count} of ${data.letter_count} letters.`;
-        }
-        if (data.complete) {
-          button.disabled = true;
-          status.textContent = "Every letter is revealed!";
-          showLetter(data.message || "You revealed every letter!");
-        } else {
-          button.disabled = false;
-        }
+        status.textContent = data.correct
+          ? `The answer was "${data.word}".`
+          : `Hint: "${data.word}" is #${data.rank}.`;
+        addGuessRow(data.word, data, true);
+        setGuessStatus(data.correct ? "You got there with a hint!" : guessStatus(data.rank), data.rank);
+        if (data.correct) win(data);
+        else button.disabled = false;
       } catch (error) {
         status.textContent = error.message;
         button.disabled = false;
