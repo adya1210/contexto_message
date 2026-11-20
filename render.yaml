@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: message-contexto-api
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn backend.main:app --workers 1 --threads 4 --timeout 120
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.8
+      - key: GITHUB_REPOSITORY
+        value: adya1210/contexto_message
+      - key: GITHUB_STATE_BRANCH
+        value: main
+      - key: GITHUB_STATE_PATH
+        value: backend/game_state.json
+      - key: GITHUB_TOKEN
+        sync: false
+      - key: GAME_ADMIN_KEY
+        sync: false
+      - key: STATE_ENCRYPTION_KEY
+        sync: false
+      - key: CORS_ORIGINS
+        value: https://adya1210.github.io
