@@ -1,6 +1,6 @@
 """Build the compact word-vector file the game ships with (backend/word_vectors.npz).
 
-Run once locally (needs ~3 GB of downloads the first time):
+Run once locally (needs ~3 GB of downloads the first time, plus gensim and nltk):
 
     python -m backend.build_vectors
 
@@ -14,8 +14,10 @@ import logging as log
 import numpy as np
 
 if __package__:
+    from .separate_opposites import antonym_pairs
     from .similarity_scorer import MODEL_FILE, VOCAB_SIZE, is_rankable
 else:
+    from separate_opposites import antonym_pairs
     from similarity_scorer import MODEL_FILE, VOCAB_SIZE, is_rankable
 
 PRIMARY = "glove-wiki-gigaword-300"
@@ -52,8 +54,9 @@ def build():
     vectors = unit(np.hstack([a, b]))
     # int8 keeps the file small; ranking quality is unchanged in testing.
     quantized = np.clip(np.round(vectors * 127), -127, 127).astype(np.int8)
-    np.savez_compressed(MODEL_FILE, words=np.array(words), vectors=quantized)
-    log.info("Saved %d words to %s", len(words), MODEL_FILE)
+    opposites = antonym_pairs(words)
+    np.savez_compressed(MODEL_FILE, words=np.array(words), vectors=quantized, opposites=opposites)
+    log.info("Saved %d words and %d opposite pairs to %s", len(words), len(opposites), MODEL_FILE)
 
 
 if __name__ == "__main__":

@@ -23,6 +23,9 @@ s t ll d re ve m o y don doesn didn isn aren wasn weren hasn hadn won wouldn sho
 """.split())
 
 POS_ORDER = ("NOUN", "VERB", "ADJ", "ADV")
+# A secret's opposites (warm/cold) rank just after this, in the yellow zone,
+# instead of near the top. See backend/separate_opposites.py.
+OPPOSITE_RANK = 500
 
 
 def is_base_form(word):
@@ -55,6 +58,11 @@ class SimilarityScorer:
         vectors = data["vectors"].astype(np.float32)
         self.unit_vectors = vectors / np.linalg.norm(vectors, axis=1, keepdims=True)
         self.total = len(self.words)
+        self.opposites = {}
+        if "opposites" in data:
+            for a, b in data["opposites"]:
+                self.opposites.setdefault(int(a), []).append(int(b))
+                self.opposites.setdefault(int(b), []).append(int(a))
         self._rank_cache = OrderedDict()
         self._cache_size = cache_size
 
@@ -90,6 +98,7 @@ class SimilarityScorer:
         secret_index = self.key_to_index[secret]
         similarities = self.unit_vectors @ self.unit_vectors[secret_index]
         similarities[secret_index] = np.inf  # the secret is always #1
+        self._demote_opposites(similarities, secret_index)
         order = np.argsort(-similarities, kind="stable")
         ranks = np.empty(self.total, dtype=np.int32)
         ranks[order] = np.arange(1, self.total + 1, dtype=np.int32)
@@ -98,6 +107,22 @@ class SimilarityScorer:
         if len(self._rank_cache) > self._cache_size:
             self._rank_cache.popitem(last=False)
         return ranks, order
+
+    def _demote_opposites(self, similarities, secret_index):
+        """Move opposites ranked above OPPOSITE_RANK to just after it, keeping their order."""
+        opposites = self.opposites.get(secret_index)
+        if not opposites or self.total <= OPPOSITE_RANK:
+            return
+        opposites = np.array(opposites)
+        cutoff = -np.partition(-similarities, OPPOSITE_RANK - 1)[OPPOSITE_RANK - 1]
+        too_close = opposites[similarities[opposites] >= cutoff]
+        if len(too_close) == 0:
+            return
+        # Recompute the cutoff without them, so they land right after rank OPPOSITE_RANK.
+        similarities[too_close] = -np.inf
+        cutoff = -np.partition(-similarities, OPPOSITE_RANK - 1)[OPPOSITE_RANK - 1]
+        closest_first = too_close[np.argsort(-self.unit_vectors[too_close] @ self.unit_vectors[secret_index])]
+        similarities[closest_first] = cutoff - 1e-6 * np.arange(1, len(closest_first) + 1)
 
     def rank(self, secret, guess):
         """1-based rank of `guess` by closeness to `secret`, or None if either is unknown."""

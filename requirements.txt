@@ -4,5 +4,7 @@ cryptography>=42.0
 numpy>=1.26
 lemminflect>=0.2.3
 gunicorn>=22.0
-# Only needed to rebuild backend/word_vectors.npz (python -m backend.build_vectors):
+# Only needed to rebuild backend/word_vectors.npz (python -m backend.build_vectors,
+# python -m backend.separate_opposites):
 # gensim>=4.3
+# nltk>=3.8
